@@ -1,0 +1,162 @@
+import SwiftUI
+import Charts
+
+struct WeeklyChartSection: View {
+    @Environment(\.colorScheme) var colorScheme
+    let records: [PainRecord]
+
+    @State private var selectedPeriod: String = "全期間"
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Header
+            HStack {
+                Text("過去7日間の推移")
+                    .font(.headline)
+                    .fontWeight(.bold)
+
+                Spacer()
+
+                Menu {
+                    Button("今週") { selectedPeriod = "今週" }
+                    Button("今月") { selectedPeriod = "今月" }
+                    Button("全期間") { selectedPeriod = "全期間" }
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(selectedPeriod)
+                            .font(.caption)
+                            .foregroundStyle(Color.textSecondary)
+                        Image(systemName: "chevron.down")
+                            .font(.caption2)
+                            .foregroundStyle(Color.textSecondary)
+                    }
+                }
+            }
+
+            // Chart
+            chartView
+                .frame(height: 160)
+                .padding(20)
+                .background(colorScheme == .dark ? Color.surfaceDark : Color.white)
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(colorScheme == .dark ? Color.white.opacity(0.05) : Color.gray.opacity(0.1), lineWidth: 1)
+                )
+        }
+    }
+
+    @ViewBuilder
+    private var chartView: some View {
+        if records.isEmpty {
+            // Demo data when no records
+            let demoData = generateDemoData()
+            Chart(demoData) { item in
+                LineMark(
+                    x: .value("Day", item.day),
+                    y: .value("Pain", item.level)
+                )
+                .foregroundStyle(Color.appPrimary)
+                .interpolationMethod(.catmullRom)
+
+                AreaMark(
+                    x: .value("Day", item.day),
+                    y: .value("Pain", item.level)
+                )
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [Color.appPrimary.opacity(0.2), Color.appPrimary.opacity(0)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .interpolationMethod(.catmullRom)
+
+                PointMark(
+                    x: .value("Day", item.day),
+                    y: .value("Pain", item.level)
+                )
+                .foregroundStyle(item.isToday ? Color.appPrimary : Color.surfaceDark)
+                .symbolSize(item.isToday ? 100 : 40)
+            }
+            .chartXAxis {
+                AxisMarks(values: .automatic) { value in
+                    AxisValueLabel {
+                        if let day = value.as(String.self) {
+                            Text(day)
+                                .font(.caption2)
+                                .foregroundStyle(day == "今日" ? Color.appPrimary : Color.textSecondary)
+                                .fontWeight(day == "今日" ? .bold : .medium)
+                        }
+                    }
+                }
+            }
+            .chartYAxis {
+                AxisMarks(position: .leading, values: [0, 5, 10]) { value in
+                    AxisGridLine()
+                        .foregroundStyle(Color.white.opacity(0.1))
+                }
+            }
+            .chartYScale(domain: 0...10)
+        } else {
+            // Real data
+            let chartData = records.enumerated().map { index, record in
+                ChartDataPoint(
+                    day: dayLabel(for: index),
+                    level: record.painLevel,
+                    isToday: index == 0
+                )
+            }.reversed()
+
+            Chart(Array(chartData)) { item in
+                LineMark(
+                    x: .value("Day", item.day),
+                    y: .value("Pain", item.level)
+                )
+                .foregroundStyle(Color.appPrimary)
+                .interpolationMethod(.catmullRom)
+
+                AreaMark(
+                    x: .value("Day", item.day),
+                    y: .value("Pain", item.level)
+                )
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [Color.appPrimary.opacity(0.2), Color.appPrimary.opacity(0)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .interpolationMethod(.catmullRom)
+            }
+            .chartYScale(domain: 0...10)
+        }
+    }
+
+    private func dayLabel(for index: Int) -> String {
+        let days = ["今日", "土", "金", "木", "水", "火", "月"]
+        return index < days.count ? days[index] : "\(index)"
+    }
+
+    private func generateDemoData() -> [ChartDataPoint] {
+        let days = ["月", "火", "水", "木", "金", "土", "今日"]
+        let levels = [3, 4, 6, 5, 4, 3, 2]
+        return days.enumerated().map { index, day in
+            ChartDataPoint(day: day, level: levels[index], isToday: day == "今日")
+        }
+    }
+}
+
+struct ChartDataPoint: Identifiable {
+    let id = UUID()
+    let day: String
+    let level: Int
+    let isToday: Bool
+}
+
+#Preview {
+    WeeklyChartSection(records: [])
+        .padding()
+        .background(Color.backgroundDark)
+        .preferredColorScheme(.dark)
+}
