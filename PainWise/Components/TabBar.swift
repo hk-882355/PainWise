@@ -57,10 +57,10 @@ struct CustomTabBar: View {
         }
         .padding(.horizontal, 8)
         .padding(.top, 12)
-        .padding(.bottom, 28)
         .background(
             (colorScheme == .dark ? Color.surfaceDark.opacity(0.95) : Color.white.opacity(0.95))
                 .background(.ultraThinMaterial)
+                .ignoresSafeArea(edges: .bottom)
         )
         .overlay(
             Rectangle()

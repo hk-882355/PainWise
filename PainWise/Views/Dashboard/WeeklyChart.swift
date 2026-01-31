@@ -76,7 +76,7 @@ struct WeeklyChartSection: View {
                     x: .value("Day", item.day),
                     y: .value("Pain", item.level)
                 )
-                .foregroundStyle(item.isToday ? Color.appPrimary : Color.surfaceDark)
+                .foregroundStyle(item.isToday ? Color.appPrimary : (colorScheme == .dark ? Color.surfaceDark : Color.gray.opacity(0.3)))
                 .symbolSize(item.isToday ? 100 : 40)
             }
             .chartXAxis {
@@ -92,9 +92,9 @@ struct WeeklyChartSection: View {
                 }
             }
             .chartYAxis {
-                AxisMarks(position: .leading, values: [0, 5, 10]) { value in
+                AxisMarks(position: .leading, values: [0, 5, 10]) { _ in
                     AxisGridLine()
-                        .foregroundStyle(Color.white.opacity(0.1))
+                        .foregroundStyle(colorScheme == .dark ? Color.white.opacity(0.1) : Color.gray.opacity(0.2))
                 }
             }
             .chartYScale(domain: 0...10)

@@ -40,10 +40,17 @@ struct SettingsView: View {
     // Profile
     @State private var showProfile = false
 
+    // Premium
+    @State private var showPremium = false
+    @StateObject private var storeKit = StoreKitManager.shared
+
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 24) {
+                    // Premium Section
+                    premiumSection
+
                     // Notification Settings
                     notificationSection
 
@@ -61,6 +68,9 @@ struct SettingsView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 100)
+            }
+            .sheet(isPresented: $showPremium) {
+                PremiumView()
             }
             .background(colorScheme == .dark ? Color.backgroundDark : Color.backgroundLight)
             .navigationBarTitleDisplayMode(.inline)
@@ -90,6 +100,76 @@ struct SettingsView: View {
                 ProfileView()
             }
         }
+    }
+
+    // MARK: - Premium Section
+    private var premiumSection: some View {
+        Button {
+            showPremium = true
+        } label: {
+            HStack(spacing: 16) {
+                // Icon
+                ZStack {
+                    LinearGradient(
+                        colors: [Color.appPrimary, Color.appPrimary.opacity(0.6)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                    .frame(width: 48, height: 48)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+
+                    Image(systemName: "crown.fill")
+                        .font(.title2)
+                        .foregroundStyle(.white)
+                }
+
+                // Content
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text(storeKit.isPremium ? L10n.settingsPremiumTitle : L10n.settingsPremiumUpgrade)
+                            .font(.headline)
+                            .fontWeight(.bold)
+
+                        if !storeKit.isPremium {
+                            Text(L10n.settingsPremiumRecommended)
+                                .font(.caption2)
+                                .fontWeight(.bold)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 2)
+                                .background(Color.appPrimary)
+                                .foregroundStyle(.white)
+                                .clipShape(Capsule())
+                        }
+                    }
+
+                    Text(storeKit.isPremium ? L10n.settingsPremiumUnlocked : L10n.settingsPremiumFeatures)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                if storeKit.isPremium {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(Color.appPrimary)
+                        .font(.title2)
+                } else {
+                    Image(systemName: "chevron.right")
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(16)
+            .background(colorScheme == .dark ? Color.surfaceDark : Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(
+                        storeKit.isPremium ? Color.appPrimary.opacity(0.3) : Color.clear,
+                        lineWidth: 2
+                    )
+            )
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Notification Section

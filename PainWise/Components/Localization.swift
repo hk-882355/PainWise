@@ -187,6 +187,13 @@ enum L10n {
     static let settingsNotificationPermissionMessage = String(localized: "settings_notification_permission_message")
     static let settingsOpenSettings = String(localized: "settings_open_settings")
 
+    // MARK: - Settings Premium Section
+    static let settingsPremiumTitle = String(localized: "settings_premium_title")
+    static let settingsPremiumUpgrade = String(localized: "settings_premium_upgrade")
+    static let settingsPremiumRecommended = String(localized: "settings_premium_recommended")
+    static let settingsPremiumUnlocked = String(localized: "settings_premium_unlocked")
+    static let settingsPremiumFeatures = String(localized: "settings_premium_features")
+
     // MARK: - Common
     static let commonCancel = String(localized: "common_cancel")
     static let commonSave = String(localized: "common_save")
