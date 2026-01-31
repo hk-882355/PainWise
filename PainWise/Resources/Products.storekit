@@ -1,0 +1,148 @@
+{
+  "appPolicies" : {
+    "eula" : "",
+    "policies" : [
+      {
+        "locale" : "en_US",
+        "policyText" : "",
+        "policyURL" : ""
+      }
+    ]
+  },
+  "identifier" : "0E95F4A5-F5A0-4F8B-B3E4-7F8B8C5D4E9A",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+
+  ],
+  "settings" : {
+    "_applicationInternalID" : "1234567890",
+    "_developerTeamID" : "XXXXXXXXXX",
+    "_lastSynchronizedDate" : 759283200,
+    "_locale" : "ja",
+    "_storefront" : "JPN",
+    "_storeKitErrors" : [
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Load Products"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Purchase"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Verification"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "App Store Sync"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Subscription Status"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "App Transaction"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Manage Subscriptions Sheet"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Refund Request Sheet"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Offer Code Redeem Sheet"
+      }
+    ]
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "B3E4F5A6-C7D8-4E9F-A0B1-C2D3E4F5A6B7",
+      "localizations" : [
+
+      ],
+      "name" : "Premium",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "780",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "C4D5E6F7-A8B9-4C0D-E1F2-A3B4C5D6E7F8",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "月額プラン - すべての機能をアンロック",
+              "displayName" : "月額プレミアム",
+              "locale" : "ja"
+            },
+            {
+              "description" : "Monthly plan - Unlock all features",
+              "displayName" : "Monthly Premium",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.hk.painwise.premium.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Monthly Premium",
+          "subscriptionGroupID" : "B3E4F5A6-C7D8-4E9F-A0B1-C2D3E4F5A6B7",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "5800",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "D5E6F7A8-B9C0-4D1E-F2A3-B4C5D6E7F8A9",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "年額プラン - 2ヶ月分お得",
+              "displayName" : "年額プレミアム",
+              "locale" : "ja"
+            },
+            {
+              "description" : "Annual plan - Save 2 months",
+              "displayName" : "Annual Premium",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.hk.painwise.premium.yearly",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "Annual Premium",
+          "subscriptionGroupID" : "B3E4F5A6-C7D8-4E9F-A0B1-C2D3E4F5A6B7",
+          "type" : "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}

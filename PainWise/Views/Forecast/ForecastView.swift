@@ -65,7 +65,7 @@ struct ForecastView: View {
                         Rectangle()
                             .fill(
                                 LinearGradient(
-                                    colors: [.clear, Color.white.opacity(0.1), .clear],
+                                    colors: [.clear, colorScheme == .dark ? Color.white.opacity(0.1) : Color.gray.opacity(0.2), .clear],
                                     startPoint: .leading,
                                     endPoint: .trailing
                                 )
@@ -305,7 +305,7 @@ struct ForecastView: View {
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(Color.white.opacity(0.05), lineWidth: 1)
+                .stroke(colorScheme == .dark ? Color.white.opacity(0.05) : Color.gray.opacity(0.1), lineWidth: 1)
         )
         .padding(.horizontal, 24)
     }
@@ -460,7 +460,7 @@ struct PreventionTipRow: View {
                         Image(systemName: "checkmark")
                             .font(.caption)
                             .fontWeight(.bold)
-                            .foregroundStyle(Color.backgroundDark)
+                            .foregroundStyle(.white)
                     }
                 }
             }
@@ -485,7 +485,7 @@ struct PreventionTipRow: View {
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(Color.white.opacity(0.05), lineWidth: 1)
+                .stroke(colorScheme == .dark ? Color.white.opacity(0.05) : Color.gray.opacity(0.1), lineWidth: 1)
         )
         // Accessibility
         .accessibilityElement(children: .ignore)

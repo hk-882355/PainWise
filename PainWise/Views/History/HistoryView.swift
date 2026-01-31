@@ -19,7 +19,6 @@ struct HistoryView: View {
     @State private var selectedPeriod = L10n.historyPeriodThisWeek
     @State private var selectedIntensityFilter: IntensityFilter = .all
     @State private var selectedRecord: PainRecord?
-    @State private var showRecordDetail = false
     @State private var showPeriodPicker = false
     @State private var showIntensityPicker = false
 
@@ -107,10 +106,8 @@ struct HistoryView: View {
             }
             .background(colorScheme == .dark ? Color.backgroundDark : Color.backgroundLight)
             .navigationBarHidden(true)
-            .sheet(isPresented: $showRecordDetail) {
-                if let record = selectedRecord {
-                    RecordDetailView(record: record)
-                }
+            .sheet(item: $selectedRecord) { record in
+                RecordDetailView(record: record)
             }
             .sheet(isPresented: $showPeriodPicker) {
                 PeriodPickerView(selectedPeriod: $selectedPeriod)
@@ -345,7 +342,6 @@ struct HistoryView: View {
         ForEach(filteredRecords) { record in
             Button {
                 selectedRecord = record
-                showRecordDetail = true
             } label: {
                 RecordCard(record: record)
             }

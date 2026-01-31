@@ -14,6 +14,10 @@ extension Color {
     static let surfaceDark = Color(hex: "1a3326")
     static let surfaceHighlight = Color(hex: "234836")
 
+    // Card (alias for surface)
+    static let cardLight = Color.white
+    static let cardDark = Color(hex: "1a3326")
+
     // Text
     static let textSecondary = Color(hex: "92c9ad")
 

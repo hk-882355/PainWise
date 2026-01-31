@@ -55,7 +55,7 @@ struct ForecastCard: View {
 
                     Text(message)
                         .font(.subheadline)
-                        .foregroundStyle(colorScheme == .dark ? Color.gray.opacity(0.9) : Color.gray)
+                        .foregroundStyle(colorScheme == .dark ? Color.gray.opacity(0.9) : Color.gray.opacity(0.8))
                         .lineSpacing(4)
                 }
 
@@ -73,13 +73,13 @@ struct ForecastCard: View {
                 }
                 .frame(width: 80)
                 .padding(.vertical, 8)
-                .background(Color.black.opacity(0.2))
+                .background(colorScheme == .dark ? Color.black.opacity(0.2) : Color.white.opacity(0.5))
                 .clipShape(RoundedRectangle(cornerRadius: 12))
             }
 
             // Footer
             Divider()
-                .background(Color.white.opacity(0.1))
+                .background(colorScheme == .dark ? Color.white.opacity(0.1) : Color.gray.opacity(0.2))
 
             HStack {
                 Spacer()
@@ -99,11 +99,14 @@ struct ForecastCard: View {
         .padding(20)
         .background(
             ZStack {
-                // Gradient Background
+                // Gradient Background - supports light/dark mode
                 LinearGradient(
-                    colors: [
+                    colors: colorScheme == .dark ? [
                         Color(hex: "193326"),
                         Color(hex: "102a1f")
+                    ] : [
+                        Color(hex: "e8f5e9"),
+                        Color(hex: "c8e6c9")
                     ],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing

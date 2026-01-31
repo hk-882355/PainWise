@@ -9,6 +9,7 @@ struct OnboardingView: View {
     @State private var inputName = ""
     @State private var notificationsEnabled = false
     @State private var healthKitEnabled = false
+    @State private var showHealthKitUnavailableAlert = false
 
     private let notificationService = NotificationService.shared
     private let healthKitService = HealthKitService.shared
@@ -43,6 +44,11 @@ struct OnboardingView: View {
                 navigationButtons
                     .padding(.horizontal, 24)
                     .padding(.bottom, 40)
+            }
+            .alert(String(localized: "healthkit_unavailable_title"), isPresented: $showHealthKitUnavailableAlert) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(String(localized: "healthkit_unavailable_message"))
             }
         }
     }
@@ -273,6 +279,12 @@ struct OnboardingView: View {
     }
 
     private func requestHealthKit() {
+        // Check if HealthKit is available first
+        guard healthKitService.isHealthKitAvailable else {
+            showHealthKitUnavailableAlert = true
+            return
+        }
+
         Task {
             do {
                 try await healthKitService.requestAuthorization()
@@ -281,6 +293,9 @@ struct OnboardingView: View {
                 }
             } catch {
                 print("HealthKit authorization failed: \(error)")
+                await MainActor.run {
+                    showHealthKitUnavailableAlert = true
+                }
             }
         }
     }
