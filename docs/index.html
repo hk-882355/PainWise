@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PainWise サポート</title>
+  <style>
+    :root {
+      --bg: #0b0f0e;
+      --surface: #101816;
+      --card: #131f1c;
+      --text: #e6f0ea;
+      --muted: #9fb2a9;
+      --accent: #38d39f;
+      --accent-2: #2aa978;
+      --border: #1f2d29;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Avenir Next", "Noto Sans JP", "Hiragino Sans", "Yu Gothic", sans-serif;
+      background: radial-gradient(1000px 600px at 10% -20%, #1f3a33 0%, transparent 60%),
+                  radial-gradient(900px 500px at 90% 0%, #1a2a26 0%, transparent 55%),
+                  var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+    }
+    .container {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 48px 20px 80px;
+    }
+    header {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 24px;
+      background: linear-gradient(135deg, #0f1715 0%, #0c1311 100%);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      margin-bottom: 28px;
+    }
+    .title {
+      font-size: 2.2rem;
+      letter-spacing: 0.02em;
+    }
+    .subtitle { color: var(--muted); }
+    .pill {
+      display: inline-block;
+      align-self: flex-start;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: rgba(56, 211, 159, 0.12);
+      color: var(--accent);
+      font-size: 0.85rem;
+      border: 1px solid rgba(56, 211, 159, 0.35);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 18px;
+      margin-top: 20px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+    }
+    h2 {
+      font-size: 1.2rem;
+      margin-bottom: 10px;
+      color: var(--accent);
+    }
+    ul { padding-left: 18px; }
+    li { margin-bottom: 8px; color: var(--muted); }
+    p { color: var(--muted); margin-bottom: 10px; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .footer {
+      margin-top: 48px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.9rem;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <span class="pill">PainWise Support</span>
+      <div class="title">サポート</div>
+      <div class="subtitle">お問い合わせ・よくある質問・使い方の案内</div>
+    </header>
+
+    <section class="grid">
+      <div class="card">
+        <h2>お問い合わせ</h2>
+        <p>不具合報告・ご相談・機能要望はこちら。</p>
+        <p><strong>メール:</strong> <a href="mailto:painwise.app@gmail.com">painwise.app@gmail.com</a></p>
+      </div>
+      <div class="card">
+        <h2>よくある質問</h2>
+        <ul>
+          <li>天気データが更新されない: 位置情報の許可を確認してください。</li>
+          <li>HealthKitが連携できない: iOSの「設定 → ヘルスケア → アプリ」で許可を確認。</li>
+          <li>分析が出ない: 記録数が少ない場合は分析が表示されません。</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h2>プレミアム / 購入</h2>
+        <ul>
+          <li>購入/解約: iOSの「設定 → Apple ID → サブスクリプション」</li>
+          <li>購入が反映されない: アプリ内の「購入を復元」をお試しください。</li>
+          <li>決済情報はAppleが管理します。</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h2>データとプライバシー</h2>
+        <p>記録データは基本的に端末内に保存されます。</p>
+        <p><a href="privacy-policy.html">プライバシーポリシー</a> をご確認ください。</p>
+      </div>
+    </section>
+
+    <div class="footer">
+      <span>&copy; 2026 PainWise</span>
+      <span><a href="privacy-policy.html">プライバシーポリシー</a></span>
+    </div>
+  </div>
+</body>
+</html>

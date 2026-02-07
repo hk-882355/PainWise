@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PainWise プライバシーポリシー</title>
+  <style>
+    :root {
+      --bg: #0b0f0e;
+      --surface: #101816;
+      --card: #131f1c;
+      --text: #e6f0ea;
+      --muted: #9fb2a9;
+      --accent: #38d39f;
+      --border: #1f2d29;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Avenir Next", "Noto Sans JP", "Hiragino Sans", "Yu Gothic", sans-serif;
+      background: radial-gradient(1000px 600px at 10% -20%, #1f3a33 0%, transparent 60%),
+                  radial-gradient(900px 500px at 90% 0%, #1a2a26 0%, transparent 55%),
+                  var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      padding: 20px;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 40px 20px 80px;
+      background: linear-gradient(180deg, rgba(16,24,22,0.6), rgba(11,15,14,0.4));
+      border: 1px solid var(--border);
+      border-radius: 16px;
+    }
+    h1 {
+      color: var(--accent);
+      font-size: 2rem;
+      margin-bottom: 8px;
+    }
+    .subtitle { color: var(--muted); margin-bottom: 28px; }
+    h2 {
+      font-size: 1.2rem;
+      margin-top: 28px;
+      margin-bottom: 12px;
+      color: var(--accent);
+    }
+    h3 {
+      font-size: 1rem;
+      margin-top: 18px;
+      margin-bottom: 8px;
+      color: var(--text);
+    }
+    p { color: var(--muted); margin-bottom: 10px; }
+    ul { padding-left: 18px; margin-bottom: 10px; }
+    li { color: var(--muted); margin-bottom: 6px; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      margin: 14px 0;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .footer {
+      margin-top: 40px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.9rem;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>PainWise プライバシーポリシー</h1>
+    <p class="subtitle">最終更新日: 2026年2月7日</p>
+
+    <div class="card">
+      <p>PainWise（以下「本アプリ」）は、ユーザーのプライバシーを尊重し、必要最小限のデータのみを取り扱います。本ポリシーは、収集する情報とその利用方法を説明します。</p>
+    </div>
+
+    <h2>1. 収集する情報</h2>
+    <h3>1.1 ユーザーが入力する情報</h3>
+    <ul>
+      <li>痛みの記録（強度、部位、種類、メモ）</li>
+      <li>プロフィール情報（任意）</li>
+    </ul>
+
+    <h3>1.2 デバイスから取得する情報（許可時のみ）</h3>
+    <ul>
+      <li>位置情報（天気・気圧データの取得に使用）</li>
+      <li>HealthKitデータ（睡眠、歩数、心拍など）</li>
+    </ul>
+
+    <h2>2. 利用目的</h2>
+    <ul>
+      <li>痛みと天気・気圧の相関分析</li>
+      <li>痛みの傾向の可視化</li>
+      <li>HealthKitデータとの相関分析（許可時のみ）</li>
+      <li>アプリの品質向上と機能改善</li>
+    </ul>
+
+    <h2>3. データの保存</h2>
+    <div class="card">
+      <p><strong>痛みの記録データはユーザーのデバイス内に保存</strong>されます。原則として外部サーバーへのアップロードは行いません。</p>
+    </div>
+
+    <h2>4. 第三者への提供</h2>
+    <p>本アプリは、以下の場合を除き、個人情報を第三者へ提供しません。</p>
+    <ul>
+      <li>ユーザーの明示的な同意がある場合</li>
+      <li>法令に基づく開示が必要な場合</li>
+    </ul>
+
+    <h2>5. 第三者サービス</h2>
+    <ul>
+      <li><strong>OpenWeatherMap:</strong> 位置情報を用いて天気・気圧データを取得</li>
+      <li><strong>Apple HealthKit:</strong> 健康データの連携（許可時のみ）</li>
+      <li><strong>Apple StoreKit:</strong> サブスクリプションの購入・管理</li>
+    </ul>
+    <p>各サービスのプライバシーポリシーもご確認ください。</p>
+    <ul>
+      <li><a href="https://openweathermap.org/privacy-policy" target="_blank" rel="noopener">OpenWeatherMap プライバシーポリシー</a></li>
+      <li><a href="https://www.apple.com/legal/privacy/" target="_blank" rel="noopener">Apple プライバシーポリシー</a></li>
+    </ul>
+
+    <h2>6. ユーザーの権利</h2>
+    <ul>
+      <li>設定から位置情報・HealthKit連携の許可を変更できます。</li>
+      <li>アプリを削除すると、デバイス内の記録データも削除されます。</li>
+    </ul>
+
+    <h2>7. セキュリティ</h2>
+    <p>通信はHTTPS/TLSで保護され、デバイス内のデータはiOSの標準セキュリティ機構により保護されます。</p>
+
+    <h2>8. 子どものプライバシー</h2>
+    <p>本アプリは13歳未満のお子様から意図的に個人情報を収集しません。</p>
+
+    <h2>9. 変更</h2>
+    <p>本ポリシーは必要に応じて更新されます。重要な変更がある場合はアプリ内で通知します。</p>
+
+    <h2>10. お問い合わせ</h2>
+    <div class="card">
+      <p><strong>メール:</strong> <a href="mailto:painwise.app@gmail.com">painwise.app@gmail.com</a></p>
+    </div>
+
+    <div class="footer">
+      <span>&copy; 2026 PainWise</span>
+      <span><a href="index.html">サポート</a></span>
+    </div>
+  </div>
+</body>
+</html>
