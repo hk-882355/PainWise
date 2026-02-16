@@ -15,6 +15,7 @@ struct ForecastView: View {
     @State private var selectedDayIndex = 0
     @State private var forecasts: [WeatherForecast] = []
     @State private var isLoading = false
+    @State private var fetchError: WeatherError?
     @AppStorage("locationEnabled") private var locationEnabled = true
     @ObservedObject private var storeKit = StoreKitManager.shared
     @State private var showPremium = false
@@ -143,6 +144,7 @@ struct ForecastView: View {
         }
 
         isLoading = true
+        fetchError = nil
         defer { isLoading = false }
 
         do {
@@ -153,7 +155,16 @@ struct ForecastView: View {
             } else if selectedDayIndex >= newForecasts.count {
                 selectedDayIndex = max(0, newForecasts.count - 1)
             }
+        } catch let error as WeatherError {
+            fetchError = error
+            #if DEBUG
+            print("Failed to fetch forecast: \(error)")
+            #endif
+            if error != .missingAPIKey {
+                Crashlytics.crashlytics().record(error: error)
+            }
         } catch {
+            fetchError = .invalidResponse
             #if DEBUG
             print("Failed to fetch forecast: \(error)")
             #endif
@@ -163,19 +174,54 @@ struct ForecastView: View {
 
     private var emptyState: some View {
         VStack(spacing: 16) {
-            Image(systemName: "cloud.slash")
+            Image(systemName: emptyStateIcon)
                 .font(.system(size: 40))
                 .foregroundStyle(.secondary)
 
-            Text("予報を取得できませんでした")
+            Text(emptyStateTitle)
                 .font(.headline)
 
-            Button("再読み込み") {
-                Task { await loadForecasts() }
+            Text(emptyStateMessage)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
+
+            if fetchError != .missingAPIKey {
+                Button("再読み込み") {
+                    Task { await loadForecasts() }
+                }
+                .buttonStyle(.borderedProminent)
             }
-            .buttonStyle(.borderedProminent)
         }
         .padding(.top, 100)
+    }
+
+    private var emptyStateIcon: String {
+        switch fetchError {
+        case .missingAPIKey: return "key.slash"
+        case .locationUnavailable: return "location.slash"
+        default: return "cloud.slash"
+        }
+    }
+
+    private var emptyStateTitle: String {
+        switch fetchError {
+        case .missingAPIKey: return "天気APIが未設定です"
+        case .locationUnavailable: return "位置情報を取得できません"
+        default: return "予報を取得できませんでした"
+        }
+    }
+
+    private var emptyStateMessage: String {
+        switch fetchError {
+        case .missingAPIKey:
+            return "OpenWeatherMap APIキーをSecrets.xcconfigに設定してください。"
+        case .locationUnavailable:
+            return "設定アプリから位置情報の利用を許可してください。"
+        default:
+            return "ネットワーク接続を確認して、再度お試しください。"
+        }
     }
 
     private var locationDisabledState: some View {

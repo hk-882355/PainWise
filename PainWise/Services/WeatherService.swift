@@ -375,7 +375,7 @@ struct OpenWeatherCity: Codable, Sendable {
 
 // MARK: - Errors
 
-enum WeatherError: LocalizedError, Sendable {
+enum WeatherError: LocalizedError, Sendable, Equatable {
     case invalidURL
     case invalidResponse
     case noData
