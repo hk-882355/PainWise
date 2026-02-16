@@ -4,11 +4,15 @@ import StoreKit
 struct PremiumView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
-    @StateObject private var storeKit = StoreKitManager.shared
+    @Environment(\.openURL) private var openURL
+    @ObservedObject private var storeKit = StoreKitManager.shared
+    @AppStorage("selectedTab") private var selectedTabRaw = Tab.home.rawValue
 
     @State private var selectedProduct: Product?
     @State private var showError = false
     @State private var isPurchasing = false
+    @State private var showUnlockedSheet = false
+    @State private var wasPremium = false
 
     var body: some View {
         NavigationStack {
@@ -20,14 +24,18 @@ struct PremiumView: View {
                     // Features
                     featuresSection
 
-                    // Products
-                    productsSection
+                    if storeKit.isPremium {
+                        premiumActiveSection
+                    } else {
+                        // Products
+                        productsSection
 
-                    // Purchase Button
-                    purchaseButton
+                        // Purchase Button
+                        purchaseButton
 
-                    // Restore
-                    restoreButton
+                        // Restore
+                        restoreButton
+                    }
 
                     // Legal Links
                     legalLinks
@@ -56,6 +64,9 @@ struct PremiumView: View {
             }
             selectedProduct = storeKit.yearlyProduct ?? storeKit.monthlyProduct
         }
+        .onAppear {
+            wasPremium = storeKit.isPremium
+        }
         .alert("エラー", isPresented: $showError) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -65,6 +76,25 @@ struct PremiumView: View {
             if newValue != nil {
                 showError = true
             }
+        }
+        .onChange(of: storeKit.isPremium) { _, newValue in
+            if newValue && !wasPremium {
+                showUnlockedSheet = true
+            }
+            wasPremium = newValue
+        }
+        .sheet(isPresented: $showUnlockedSheet) {
+            PremiumUnlockedSheet(
+                onSelectTab: { tab in
+                    selectedTabRaw = tab.rawValue
+                    showUnlockedSheet = false
+                    dismiss()
+                },
+                onClose: {
+                    showUnlockedSheet = false
+                    dismiss()
+                }
+            )
         }
     }
 
@@ -103,14 +133,14 @@ struct PremiumView: View {
         VStack(spacing: 16) {
             FeatureRow(
                 icon: "chart.line.uptrend.xyaxis",
-                title: "7日間の天気予報",
+                title: "5日間の天気予報",
                 description: "より長期の痛み予測が可能に"
             )
 
             FeatureRow(
                 icon: "doc.text.magnifyingglass",
-                title: "詳細AI分析レポート",
-                description: "痛みのパターンを深く理解"
+                title: "分析レポート",
+                description: "痛みの相関や傾向を確認"
             )
 
             FeatureRow(
@@ -161,7 +191,7 @@ struct PremiumView: View {
                 do {
                     _ = try await storeKit.purchase(product)
                     if storeKit.isPremium {
-                        dismiss()
+                        showUnlockedSheet = true
                     }
                 } catch {
                     // Error is handled by storeKit.errorMessage
@@ -184,7 +214,7 @@ struct PremiumView: View {
             .foregroundStyle(.white)
             .clipShape(RoundedRectangle(cornerRadius: 12))
         }
-        .disabled(selectedProduct == nil || isPurchasing)
+        .disabled(storeKit.isPremium || selectedProduct == nil || isPurchasing)
     }
 
     // MARK: - Restore Button
@@ -193,7 +223,7 @@ struct PremiumView: View {
             Task {
                 await storeKit.restorePurchases()
                 if storeKit.isPremium {
-                    dismiss()
+                    showUnlockedSheet = true
                 }
             }
         }
@@ -201,22 +231,54 @@ struct PremiumView: View {
         .foregroundStyle(.secondary)
     }
 
+    // MARK: - Premium Active
+    private var premiumActiveSection: some View {
+        VStack(spacing: 12) {
+            HStack(spacing: 10) {
+                Image(systemName: "checkmark.seal.fill")
+                    .foregroundStyle(Color.appPrimary)
+                Text("プレミアムは有効です")
+                    .font(.headline)
+                    .fontWeight(.bold)
+            }
+
+            Button("サブスクリプションを管理") {
+                guard let url = URL(string: "https://apps.apple.com/account/subscriptions") else { return }
+                openURL(url)
+            }
+            .font(.subheadline)
+            .foregroundStyle(Color.appPrimary)
+
+            restoreButton
+        }
+        .frame(maxWidth: .infinity)
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(colorScheme == .dark ? Color.cardDark : Color.cardLight)
+        )
+    }
+
     // MARK: - Legal Links
     private var legalLinks: some View {
         HStack(spacing: 16) {
-            Link(destination: URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!) {
-                Text("利用規約")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            if let url = URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/") {
+                Link(destination: url) {
+                    Text("利用規約")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             Text("•")
                 .foregroundStyle(.secondary)
 
-            Link(destination: URL(string: "https://hiroki-it.github.io/painwise-privacy/")!) {
-                Text("プライバシーポリシー")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            if let url = URL(string: "https://hk-882355.github.io/painwise-privacy/") {
+                Link(destination: url) {
+                    Text("プライバシーポリシー")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
     }
@@ -262,6 +324,81 @@ struct FeatureRow: View {
     }
 }
 
+// MARK: - Premium Unlocked Sheet
+struct PremiumUnlockedSheet: View {
+    let onSelectTab: (Tab) -> Void
+    let onClose: () -> Void
+
+    private let shortcuts: [(title: String, subtitle: String, tab: Tab)] = [
+        ("5日間の天気予報", "予報タブで確認", .forecast),
+        ("分析サマリー", "分析タブで確認", .analysis),
+        ("PDFエクスポート", "履歴タブで出力", .history),
+        ("HealthKit連携", "設定で有効化", .settings)
+    ]
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 16) {
+                VStack(spacing: 8) {
+                    Image(systemName: "crown.fill")
+                        .font(.system(size: 40))
+                        .foregroundStyle(Color.appPrimary)
+
+                    Text("プレミアムが有効になりました")
+                        .font(.title2)
+                        .fontWeight(.bold)
+
+                    Text("使えるようになった機能はこちらです")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.top, 24)
+
+                VStack(spacing: 8) {
+                    ForEach(shortcuts, id: \.title) { item in
+                        Button {
+                            onSelectTab(item.tab)
+                        } label: {
+                            HStack(spacing: 12) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(item.title)
+                                        .font(.headline)
+                                        .foregroundStyle(.primary)
+
+                                    Text(item.subtitle)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+
+                                Spacer()
+
+                                Image(systemName: "chevron.right")
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(14)
+                            .background(Color.surfaceHighlight.opacity(0.4))
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+
+                Button("あとで") {
+                    onClose()
+                }
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .padding(.top, 8)
+
+                Spacer()
+            }
+            .padding(.horizontal, 20)
+            .navigationTitle("プレミアム解放")
+            .navigationBarTitleDisplayMode(.inline)
+        }
+    }
+}
+
 // MARK: - Product Card
 struct ProductCard: View {
     @Environment(\.colorScheme) private var colorScheme
@@ -291,6 +428,35 @@ struct ProductCard: View {
         default:
             return product.description
         }
+    }
+
+    private var perMonthPriceText: String? {
+        guard product.id == ProductID.yearlyPremium.rawValue,
+              let subscription = product.subscription else {
+            return nil
+        }
+
+        let months: Int
+        switch subscription.subscriptionPeriod.unit {
+        case .year:
+            months = subscription.subscriptionPeriod.value * 12
+        case .month:
+            months = subscription.subscriptionPeriod.value
+        default:
+            return nil
+        }
+
+        guard months > 0 else { return nil }
+        let total = NSDecimalNumber(decimal: product.price)
+        let perMonth = total.dividing(by: NSDecimalNumber(value: months)).decimalValue
+        return "\(formatPrice(perMonth)) /月 相当"
+    }
+
+    private func formatPrice(_ price: Decimal) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.locale = Locale.current
+        return formatter.string(from: NSDecimalNumber(decimal: price)) ?? "\(price)"
     }
 
     var body: some View {
@@ -325,8 +491,8 @@ struct ProductCard: View {
                         .font(.title3)
                         .fontWeight(.bold)
 
-                    if product.id == ProductID.yearlyPremium.rawValue {
-                        Text("¥483/月 相当")
+                    if let perMonthPriceText {
+                        Text(perMonthPriceText)
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }

@@ -4,6 +4,9 @@
     "" : {
 
     },
+    "・分析タブ：相関サマリー\\n・履歴タブ：PDFエクスポート" : {
+
+    },
     "/ 10" : {
 
     },
@@ -53,9 +56,6 @@
 
     },
     "•" : {
-
-    },
-    "¥483/月 相当" : {
 
     },
     "accessibility_completed" : {
@@ -591,13 +591,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "AI Summary"
+            "value" : "Summary"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "AI サマリー"
+            "value" : "サマリー"
           }
         }
       }
@@ -812,13 +812,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "AI Analysis"
+            "value" : "Analysis"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "AI分析"
+            "value" : "分析"
           }
         }
       }
@@ -846,13 +846,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "AI Chronic Pain Tracker"
+            "value" : "Chronic Pain Tracker"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "AI慢性痛トラッカー"
+            "value" : "慢性痛トラッカー"
           }
         }
       }
@@ -1980,13 +1980,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "AI-based analysis"
+            "value" : "Trend analysis"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "AIによる分析"
+            "value" : "傾向分析"
           }
         }
       }
@@ -2004,6 +2004,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "アラート"
+          }
+        }
+      }
+    },
+    "forecast_card_data_richness" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Data"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "データ充実度"
           }
         }
       }
@@ -3133,6 +3150,23 @@
         }
       }
     },
+    "onboarding_health_premium_only" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "HealthKit integration is available with Premium."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "HealthKit連携はプレミアムで利用できます。"
+          }
+        }
+      }
+    },
     "onboarding_health_title" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3275,13 +3309,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Track your chronic pain and discover patterns with AI analysis"
+            "value" : "Track your chronic pain and discover patterns from your records"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "慢性痛を記録し、AI分析でパターンを発見しましょう"
+            "value" : "慢性痛を記録し、パターンを発見しましょう"
           }
         }
       }
@@ -3509,6 +3543,9 @@
           }
         }
       }
+    },
+    "PainWise" : {
+
     },
     "PainWise v1.0.0 (Build 1)" : {
 
@@ -4267,6 +4304,12 @@
         }
       }
     },
+    "quick_record_save_error_message" : {
+
+    },
+    "quick_record_save_error_title" : {
+
+    },
     "quick_record_select_parts" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4671,6 +4714,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "クラウド同期"
+          }
+        }
+      }
+    },
+    "settings_cloud_sync_coming_soon" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Coming soon"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "準備中"
           }
         }
       }
@@ -5188,6 +5248,12 @@
         }
       }
     },
+    "あとで" : {
+
+    },
+    "アプリを再起動しても改善しない場合は、サポートにご連絡ください。" : {
+
+    },
     "エラー" : {
 
     },
@@ -5197,7 +5263,13 @@
     "サブスクリプションは自動更新されます。次回更新日の24時間前までにキャンセルしない限り、自動的に課金されます。購入後、設定アプリからサブスクリプションを管理できます。" : {
 
     },
+    "サブスクリプションを管理" : {
+
+    },
     "すべての機能をアンロック" : {
+
+    },
+    "データの読み込みに失敗しました" : {
 
     },
     "なし (None)" : {
@@ -5209,13 +5281,34 @@
     "プレミアム" : {
 
     },
+    "プレミアムが有効になりました" : {
+
+    },
+    "プレミアムは有効です" : {
+
+    },
+    "プレミアム解放" : {
+
+    },
+    "予報を取得できませんでした" : {
+
+    },
     "今月" : {
 
     },
     "今週" : {
 
     },
+    "使えるようになった機能はこちらです" : {
+
+    },
+    "使える場所" : {
+
+    },
     "全期間" : {
+
+    },
+    "再読み込み" : {
 
     },
     "利用規約" : {

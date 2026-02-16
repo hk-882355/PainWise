@@ -1,8 +1,6 @@
 import Foundation
-import SwiftData
 
-@Model
-final class PainForecast {
+struct PainForecast: Identifiable, Sendable {
     var id: UUID
     var createdAt: Date
     var targetDate: Date
@@ -10,7 +8,7 @@ final class PainForecast {
     var riskLevel: RiskLevel
     var weatherForecast: WeatherForecast?
     var preventionTips: [PreventionTip]
-    var confidence: Int // AI confidence 0-100
+    var confidence: Int // prediction confidence 0-100
 
     init(
         id: UUID = UUID(),
@@ -33,7 +31,7 @@ final class PainForecast {
     }
 }
 
-enum RiskLevel: String, Codable {
+enum RiskLevel: String, Codable, Sendable {
     case low = "低"
     case medium = "中"
     case high = "高"
@@ -67,7 +65,7 @@ enum RiskLevel: String, Codable {
     }
 }
 
-struct WeatherForecast: Codable {
+struct WeatherForecast: Codable, Sendable {
     var date: Date
     var pressure: Double
     var pressureChange: Double // Change from previous day
@@ -77,7 +75,7 @@ struct WeatherForecast: Codable {
     var precipitationProbability: Int
 }
 
-enum WeatherCondition: String, Codable {
+enum WeatherCondition: String, Codable, Sendable {
     case sunny = "晴れ"
     case cloudy = "曇り"
     case rainy = "雨"
@@ -97,7 +95,7 @@ enum WeatherCondition: String, Codable {
     }
 }
 
-struct PreventionTip: Codable, Identifiable {
+struct PreventionTip: Codable, Identifiable, Sendable {
     var id: UUID = UUID()
     var title: String
     var description: String

@@ -1,13 +1,23 @@
 import SwiftUI
 import SwiftData
+import FirebaseCrashlytics
 
 struct ForecastView: View {
     @Environment(\.colorScheme) var colorScheme
-    @Query(sort: \PainRecord.timestamp, order: .reverse) private var records: [PainRecord]
+    @Query private var records: [PainRecord]
+
+    init() {
+        var descriptor = FetchDescriptor<PainRecord>(sortBy: [SortDescriptor(\.timestamp, order: .reverse)])
+        descriptor.fetchLimit = 30
+        _records = Query(descriptor)
+    }
 
     @State private var selectedDayIndex = 0
     @State private var forecasts: [WeatherForecast] = []
     @State private var isLoading = false
+    @AppStorage("locationEnabled") private var locationEnabled = true
+    @ObservedObject private var storeKit = StoreKitManager.shared
+    @State private var showPremium = false
 
     private let weatherService = WeatherService.shared
 
@@ -44,40 +54,55 @@ struct ForecastView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 24) {
-                    if isLoading {
-                        ProgressView()
-                            .padding(.top, 100)
-                    } else {
-                        // 3-Day Timeline
-                        dayTimeline
+            ZStack {
+                ScrollView {
+                    VStack(spacing: 24) {
+                        if forecasts.isEmpty {
+                            if locationEnabled {
+                                emptyState
+                            } else {
+                                locationDisabledState
+                            }
+                        } else {
+                            if !storeKit.isPremium {
+                                premiumGate
+                                    .padding(.horizontal, 20)
+                                    .padding(.top, 16)
+                            }
 
-                        // Main Risk Display
-                        riskDisplay
+                            // Forecast Timeline
+                            dayTimeline
 
-                        // Alert Card
-                        if let forecast = selectedForecast, abs(forecast.pressureChange) > 5 {
-                            alertCard(pressure: forecast.pressure, change: forecast.pressureChange)
-                        }
+                            // Main Risk Display
+                            riskDisplay
 
-                        // Divider
-                        Rectangle()
-                            .fill(
-                                LinearGradient(
-                                    colors: [.clear, colorScheme == .dark ? Color.white.opacity(0.1) : Color.gray.opacity(0.2), .clear],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
+                            // Alert Card
+                            if let forecast = selectedForecast, abs(forecast.pressureChange) > 5 {
+                                alertCard(pressure: forecast.pressure, change: forecast.pressureChange)
+                            }
+
+                            // Divider
+                            Rectangle()
+                                .fill(
+                                    LinearGradient(
+                                        colors: [.clear, colorScheme == .dark ? Color.white.opacity(0.1) : Color.gray.opacity(0.2), .clear],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
                                 )
-                            )
-                            .frame(height: 1)
-                            .padding(.horizontal, 20)
+                                .frame(height: 1)
+                                .padding(.horizontal, 20)
 
-                        // Prevention Tips
-                        preventionSection
+                            // Prevention Tips
+                            preventionSection
+                        }
                     }
+                    .padding(.bottom, 100)
                 }
-                .padding(.bottom, 100)
+
+                if isLoading {
+                    loadingOverlay
+                }
             }
             .background(colorScheme == .dark ? Color.backgroundDark : Color.backgroundLight)
             .navigationBarTitleDisplayMode(.inline)
@@ -96,36 +121,89 @@ struct ForecastView: View {
             .task {
                 await loadForecasts()
             }
+            .onChange(of: locationEnabled) { _, _ in
+                Task { await loadForecasts() }
+            }
+            .onChange(of: storeKit.isPremium) { _, newValue in
+                if !newValue {
+                    selectedDayIndex = 0
+                }
+            }
+        }
+        .sheet(isPresented: $showPremium) {
+            PremiumView()
         }
     }
 
     private func loadForecasts() async {
-        isLoading = true
-        do {
-            forecasts = try await weatherService.fetchForecast()
-        } catch {
-            print("Failed to fetch forecast: \(error)")
-            // Use mock data as fallback
-            forecasts = createMockForecasts()
+        guard locationEnabled else {
+            forecasts = []
+            isLoading = false
+            return
         }
-        isLoading = false
+
+        isLoading = true
+        defer { isLoading = false }
+
+        do {
+            let newForecasts = try await weatherService.fetchForecast()
+            forecasts = newForecasts
+            if !storeKit.isPremium {
+                selectedDayIndex = 0
+            } else if selectedDayIndex >= newForecasts.count {
+                selectedDayIndex = max(0, newForecasts.count - 1)
+            }
+        } catch {
+            #if DEBUG
+            print("Failed to fetch forecast: \(error)")
+            #endif
+            Crashlytics.crashlytics().record(error: error)
+        }
     }
 
-    private func createMockForecasts() -> [WeatherForecast] {
-        let today = Date()
-        return (0..<3).compactMap { offset in
-            guard let date = Calendar.current.date(byAdding: .day, value: offset, to: today) else { return nil }
-            let pressureChange = Double.random(in: -15...5)
-            return WeatherForecast(
-                date: date,
-                pressure: 1013 + pressureChange,
-                pressureChange: pressureChange,
-                temperature: 15 + Double.random(in: -5...10),
-                humidity: 60 + Double.random(in: -20...20),
-                condition: [.sunny, .cloudy, .rainy, .partlyCloudy].randomElement() ?? .sunny,
-                precipitationProbability: Int.random(in: 0...100)
-            )
+    private var emptyState: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "cloud.slash")
+                .font(.system(size: 40))
+                .foregroundStyle(.secondary)
+
+            Text("予報を取得できませんでした")
+                .font(.headline)
+
+            Button("再読み込み") {
+                Task { await loadForecasts() }
+            }
+            .buttonStyle(.borderedProminent)
         }
+        .padding(.top, 100)
+    }
+
+    private var locationDisabledState: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "location.slash")
+                .font(.system(size: 40))
+                .foregroundStyle(.secondary)
+
+            Text("位置情報がオフです")
+                .font(.headline)
+
+            Text(L10n.dashboardEnableLocation)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 24)
+        }
+        .padding(.top, 100)
+    }
+
+    private var loadingOverlay: some View {
+        ProgressView()
+            .padding(20)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(colorScheme == .dark ? Color.black.opacity(0.6) : Color.white.opacity(0.9))
+            )
+            .shadow(radius: 10)
     }
 
     private func calculateRiskLevel(pressureChange: Double) -> RiskLevel {
@@ -139,15 +217,21 @@ struct ForecastView: View {
         HStack(spacing: 12) {
             ForEach(0..<forecasts.count, id: \.self) { index in
                 let forecast = forecasts[index]
+                let isLocked = !storeKit.isPremium && index > 0
                 DayCard(
                     date: formatDate(forecast.date),
                     dayOfWeek: index == 0 ? L10n.forecastToday : nil,
                     riskPercent: calculateDayRiskPercent(forecast),
                     weather: forecast.condition,
-                    isSelected: index == selectedDayIndex
+                    isSelected: index == selectedDayIndex,
+                    isLocked: isLocked
                 ) {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                        selectedDayIndex = index
+                    if isLocked {
+                        showPremium = true
+                    } else {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            selectedDayIndex = index
+                        }
                     }
                 }
             }
@@ -161,11 +245,24 @@ struct ForecastView: View {
         return min(100, basePressureRisk + 10)
     }
 
-    private func formatDate(_ date: Date) -> String {
+    private static let shortDateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "ja_JP")
         formatter.dateFormat = "M/d"
-        return formatter.string(from: date)
+        return formatter
+    }()
+
+    private func formatDate(_ date: Date) -> String {
+        Self.shortDateFormatter.string(from: date)
+    }
+
+    private var premiumGate: some View {
+        PremiumGateCard(
+            title: "5日予報はプレミアム",
+            message: "今日以降の予報はプレミアムで解放されます。",
+            buttonTitle: "プレミアムを見る",
+            onUpgrade: { showPremium = true }
+        )
     }
 
     // MARK: - Risk Display
@@ -269,11 +366,15 @@ struct ForecastView: View {
         .padding(.horizontal, 24)
     }
 
-    private func formatFullDate(_ date: Date) -> String {
+    private static let fullDateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "ja_JP")
         formatter.dateFormat = "M月d日"
-        return formatter.string(from: date)
+        return formatter
+    }()
+
+    private func formatFullDate(_ date: Date) -> String {
+        Self.fullDateFormatter.string(from: date)
     }
 
     // MARK: - Alert Card
@@ -359,9 +460,15 @@ extension RiskLevel {
 
 // MARK: - Supporting Types
 struct PreventionTipItem: Identifiable {
-    let id = UUID()
+    let id: String
     let title: String
     let description: String
+
+    init(title: String, description: String) {
+        self.id = title
+        self.title = title
+        self.description = description
+    }
 }
 
 // MARK: - Day Card
@@ -372,6 +479,7 @@ struct DayCard: View {
     let riskPercent: Int
     let weather: WeatherCondition
     let isSelected: Bool
+    let isLocked: Bool
     let action: () -> Void
 
     private var weatherIcon: String {
@@ -424,9 +532,16 @@ struct DayCard: View {
             .shadow(color: isSelected ? Color.appPrimary.opacity(0.15) : .clear, radius: 15)
         }
         .buttonStyle(.plain)
+        .overlay(alignment: .topTrailing) {
+            if isLocked {
+                PremiumBadge(text: "Premium")
+                    .padding(6)
+            }
+        }
+        .opacity(isLocked ? 0.6 : 1)
         // Accessibility
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(dayOfWeek != nil ? "\(date) \(dayOfWeek!)" : date)
+        .accessibilityLabel(dayOfWeek.map { "\(date) \($0)" } ?? date)
         .accessibilityValue(String(localized: "accessibility_day_card_risk \(riskPercent)"))
         .accessibilityHint(isSelected ? String(localized: "accessibility_currently_selected") : String(localized: "accessibility_tap_to_select"))
         .accessibilityAddTraits(isSelected ? .isSelected : [])
@@ -437,7 +552,24 @@ struct DayCard: View {
 struct PreventionTipRow: View {
     @Environment(\.colorScheme) var colorScheme
     let tip: PreventionTipItem
-    @State private var isCompleted = false
+    @AppStorage private var isCompleted: Bool
+
+    init(tip: PreventionTipItem) {
+        self.tip = tip
+        // Daily key: resets each day automatically
+        let dateKey = Self.todayDateKey
+        self._isCompleted = AppStorage(wrappedValue: false, "prevention_tip_\(dateKey)_\(tip.title)")
+    }
+
+    private static let dateKeyFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        return f
+    }()
+
+    private static var todayDateKey: String {
+        dateKeyFormatter.string(from: Date())
+    }
 
     var body: some View {
         HStack(spacing: 16) {

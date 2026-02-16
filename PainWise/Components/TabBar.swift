@@ -1,6 +1,6 @@
 import SwiftUI
 
-enum Tab: CaseIterable {
+enum Tab: String, CaseIterable, Sendable {
     case home
     case history
     case analysis

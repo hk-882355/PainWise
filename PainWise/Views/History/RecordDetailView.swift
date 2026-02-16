@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import FirebaseCrashlytics
 
 struct RecordDetailView: View {
     @Environment(\.colorScheme) var colorScheme
@@ -12,21 +13,11 @@ struct RecordDetailView: View {
     @State private var showEditSheet = false
 
     private var borderColor: Color {
-        switch record.painLevel {
-        case 0...2: return .painMild
-        case 3...5: return .painModerate
-        case 6...8: return .painSevere
-        default: return .painExtreme
-        }
+        record.painLevelColor
     }
 
     private var severityText: String {
-        switch record.painLevel {
-        case 0...2: return L10n.painSeverityMild
-        case 3...5: return L10n.painSeverityModerate
-        case 6...8: return L10n.painSeveritySevere
-        default: return L10n.painSeverityExtreme
-        }
+        record.painLevelText
     }
 
     var body: some View {
@@ -344,17 +335,25 @@ struct RecordDetailView: View {
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
-    private func formatDate(_ date: Date) -> String {
+    private static let dateOnlyFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = Locale.current
         formatter.dateStyle = .long
-        return formatter.string(from: date)
+        return formatter
+    }()
+
+    private static let timeOnlyFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        return formatter
+    }()
+
+    private func formatDate(_ date: Date) -> String {
+        Self.dateOnlyFormatter.string(from: date)
     }
 
     private func formatTime(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm"
-        return formatter.string(from: date)
+        Self.timeOnlyFormatter.string(from: date)
     }
 
     private func deleteRecord() {
@@ -363,63 +362,10 @@ struct RecordDetailView: View {
             try modelContext.save()
             dismiss()
         } catch {
+            #if DEBUG
             print("Failed to delete record: \(error)")
-        }
-    }
-}
-
-// MARK: - Flow Layout
-struct FlowLayout: Layout {
-    var spacing: CGFloat = 8
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let result = FlowResult(
-            in: proposal.replacingUnspecifiedDimensions().width,
-            subviews: subviews,
-            spacing: spacing
-        )
-        return result.size
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let result = FlowResult(
-            in: bounds.width,
-            subviews: subviews,
-            spacing: spacing
-        )
-        for (index, subview) in subviews.enumerated() {
-            subview.place(at: CGPoint(x: bounds.minX + result.positions[index].x,
-                                      y: bounds.minY + result.positions[index].y),
-                         proposal: .unspecified)
-        }
-    }
-
-    struct FlowResult {
-        var size: CGSize = .zero
-        var positions: [CGPoint] = []
-
-        init(in maxWidth: CGFloat, subviews: Subviews, spacing: CGFloat) {
-            var x: CGFloat = 0
-            var y: CGFloat = 0
-            var rowHeight: CGFloat = 0
-
-            for subview in subviews {
-                let size = subview.sizeThatFits(.unspecified)
-
-                if x + size.width > maxWidth, x > 0 {
-                    x = 0
-                    y += rowHeight + spacing
-                    rowHeight = 0
-                }
-
-                positions.append(CGPoint(x: x, y: y))
-                rowHeight = max(rowHeight, size.height)
-                x += size.width + spacing
-
-                self.size.width = max(self.size.width, x)
-            }
-
-            self.size.height = y + rowHeight
+            #endif
+            Crashlytics.crashlytics().record(error: error)
         }
     }
 }

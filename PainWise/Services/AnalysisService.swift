@@ -16,131 +16,95 @@ final class AnalysisService: ObservableObject {
 
     func analyzeRecords(_ records: [PainRecord]) async {
         guard records.count >= 3 else {
-            // Need at least 3 records for meaningful analysis
-            generateMockAnalysis()
+            correlations = []
+            insights = []
+            lastAnalyzedDate = Date()
             return
         }
 
         isAnalyzing = true
 
-        // Calculate correlations
-        var results: [CorrelationResult] = []
+        // Extract Sendable data for background computation
+        let recordData = records.map { AnalysisRecordData(record: $0) }
 
-        // 1. Pressure correlation
-        let pressureCorrelation = calculatePressureCorrelation(records)
-        if let corr = pressureCorrelation {
-            results.append(corr)
-        }
+        // Offload computation to background
+        let (newCorrelations, newInsights) = await Task.detached {
+            Self.computeAnalysis(recordData)
+        }.value
 
-        // 2. Sleep correlation
-        let sleepCorrelation = calculateSleepCorrelation(records)
-        if let corr = sleepCorrelation {
-            results.append(corr)
-        }
-
-        // 3. Step count correlation
-        let stepCorrelation = calculateStepCorrelation(records)
-        if let corr = stepCorrelation {
-            results.append(corr)
-        }
-
-        // 4. Temperature correlation
-        let tempCorrelation = calculateTemperatureCorrelation(records)
-        if let corr = tempCorrelation {
-            results.append(corr)
-        }
-
-        // Sort by absolute correlation strength
-        correlations = results.sorted { abs($0.coefficient) > abs($1.coefficient) }
-
-        // Generate insights
-        insights = generateInsights(from: records, correlations: correlations)
-
+        correlations = newCorrelations
+        insights = newInsights
         lastAnalyzedDate = Date()
         isAnalyzing = false
     }
 
-    // MARK: - Correlation Calculations
+    // MARK: - Background Computation (nonisolated)
 
-    private func calculatePressureCorrelation(_ records: [PainRecord]) -> CorrelationResult? {
-        let validRecords = records.filter { $0.weatherData?.pressure != nil }
-        guard validRecords.count >= 3 else { return nil }
+    private nonisolated static func computeAnalysis(
+        _ records: [AnalysisRecordData]
+    ) -> ([CorrelationResult], [Insight]) {
+        var results: [CorrelationResult] = []
 
-        let painLevels = validRecords.map { Double($0.painLevel) }
-        let pressures = validRecords.compactMap { $0.weatherData?.pressure }
+        let correlationConfigs: [(CorrelationFactor, (AnalysisRecordData) -> Double?, String, String, String)] = [
+            (.pressure, { $0.pressure }, "低気圧時に痛みが増加", "高気圧時に痛みが増加", "気圧との相関は弱い"),
+            (.sleepDuration, { $0.sleepDuration }, "睡眠不足で痛みが増加", "長時間睡眠で痛みが増加", "睡眠との相関は弱い"),
+            (.stepCount, { $0.stepCount.map(Double.init) }, "活動量が多いと痛みが軽減", "活動量が多いと痛みが増加", "活動量との相関は弱い"),
+            (.temperature, { $0.temperature }, "気温が低いと痛みが増加", "気温が高いと痛みが増加", "気温との相関は弱い"),
+            (.humidity, { $0.humidity }, "湿度が低いと痛みが増加", "湿度が高いと痛みが増加", "湿度との相関は弱い"),
+            (.heartRate, { $0.heartRate }, "心拍数が低いと痛みが増加", "心拍数が高いと痛みが増加", "心拍数との相関は弱い"),
+        ]
 
-        guard painLevels.count == pressures.count else { return nil }
+        for (factor, extractor, negDesc, posDesc, weakDesc) in correlationConfigs {
+            if let result = calculateCorrelation(
+                records: records,
+                factor: factor,
+                valueExtractor: extractor,
+                negativeDescription: negDesc,
+                positiveDescription: posDesc,
+                weakDescription: weakDesc
+            ) {
+                results.append(result)
+            }
+        }
 
-        let coefficient = pearsonCorrelation(painLevels, pressures)
+        let sorted = results.sorted { abs($0.coefficient) > abs($1.coefficient) }
+        let insights = generateInsights(from: records, correlations: sorted)
 
-        return CorrelationResult(
-            factor: .pressure,
-            coefficient: coefficient,
-            sampleSize: validRecords.count,
-            description: coefficient < -0.3 ? "低気圧時に痛みが増加" : (coefficient > 0.3 ? "高気圧時に痛みが増加" : "気圧との相関は弱い")
-        )
+        return (sorted, insights)
     }
 
-    private func calculateSleepCorrelation(_ records: [PainRecord]) -> CorrelationResult? {
-        let validRecords = records.filter { $0.healthData?.sleepDuration != nil }
+    // MARK: - Generic Correlation Calculator
+
+    private nonisolated static func calculateCorrelation(
+        records: [AnalysisRecordData],
+        factor: CorrelationFactor,
+        valueExtractor: (AnalysisRecordData) -> Double?,
+        negativeDescription: String,
+        positiveDescription: String,
+        weakDescription: String
+    ) -> CorrelationResult? {
+        let validRecords = records.filter { valueExtractor($0) != nil }
         guard validRecords.count >= 3 else { return nil }
 
         let painLevels = validRecords.map { Double($0.painLevel) }
-        let sleepHours = validRecords.compactMap { $0.healthData?.sleepDuration }
+        let values = validRecords.compactMap { valueExtractor($0) }
 
-        guard painLevels.count == sleepHours.count else { return nil }
+        guard painLevels.count == values.count else { return nil }
 
-        let coefficient = pearsonCorrelation(painLevels, sleepHours)
-
-        return CorrelationResult(
-            factor: .sleepDuration,
-            coefficient: coefficient,
-            sampleSize: validRecords.count,
-            description: coefficient < -0.3 ? "睡眠不足で痛みが増加" : (coefficient > 0.3 ? "長時間睡眠で痛みが増加" : "睡眠との相関は弱い")
-        )
-    }
-
-    private func calculateStepCorrelation(_ records: [PainRecord]) -> CorrelationResult? {
-        let validRecords = records.filter { $0.healthData?.stepCount != nil }
-        guard validRecords.count >= 3 else { return nil }
-
-        let painLevels = validRecords.map { Double($0.painLevel) }
-        let steps = validRecords.compactMap { $0.healthData?.stepCount }.map { Double($0) }
-
-        guard painLevels.count == steps.count else { return nil }
-
-        let coefficient = pearsonCorrelation(painLevels, steps)
+        let coefficient = pearsonCorrelation(painLevels, values)
+        let description = coefficient < -0.3 ? negativeDescription : (coefficient > 0.3 ? positiveDescription : weakDescription)
 
         return CorrelationResult(
-            factor: .stepCount,
+            factor: factor,
             coefficient: coefficient,
             sampleSize: validRecords.count,
-            description: coefficient < -0.3 ? "活動量が多いと痛みが軽減" : (coefficient > 0.3 ? "活動量が多いと痛みが増加" : "活動量との相関は弱い")
-        )
-    }
-
-    private func calculateTemperatureCorrelation(_ records: [PainRecord]) -> CorrelationResult? {
-        let validRecords = records.filter { $0.weatherData?.temperature != nil }
-        guard validRecords.count >= 3 else { return nil }
-
-        let painLevels = validRecords.map { Double($0.painLevel) }
-        let temps = validRecords.compactMap { $0.weatherData?.temperature }
-
-        guard painLevels.count == temps.count else { return nil }
-
-        let coefficient = pearsonCorrelation(painLevels, temps)
-
-        return CorrelationResult(
-            factor: .temperature,
-            coefficient: coefficient,
-            sampleSize: validRecords.count,
-            description: coefficient < -0.3 ? "気温が低いと痛みが増加" : (coefficient > 0.3 ? "気温が高いと痛みが増加" : "気温との相関は弱い")
+            description: description
         )
     }
 
     // MARK: - Pearson Correlation
 
-    private func pearsonCorrelation(_ x: [Double], _ y: [Double]) -> Double {
+    private nonisolated static func pearsonCorrelation(_ x: [Double], _ y: [Double]) -> Double {
         guard x.count == y.count, x.count > 1 else { return 0 }
 
         let n = Double(x.count)
@@ -160,10 +124,9 @@ final class AnalysisService: ObservableObject {
 
     // MARK: - Generate Insights
 
-    private func generateInsights(from records: [PainRecord], correlations: [CorrelationResult]) -> [Insight] {
+    private nonisolated static func generateInsights(from records: [AnalysisRecordData], correlations: [CorrelationResult]) -> [Insight] {
         var insights: [Insight] = []
 
-        // Most common body parts
         let bodyPartCounts = Dictionary(grouping: records.flatMap { $0.bodyParts }) { $0 }
             .mapValues { $0.count }
             .sorted { $0.value > $1.value }
@@ -176,7 +139,6 @@ final class AnalysisService: ObservableObject {
             ))
         }
 
-        // Average pain level
         let avgPain = records.isEmpty ? 0 : Double(records.map { $0.painLevel }.reduce(0, +)) / Double(records.count)
         insights.append(Insight(
             type: .summary,
@@ -184,7 +146,6 @@ final class AnalysisService: ObservableObject {
             description: String(format: "過去の記録から平均 %.1f/10 の痛みレベルです", avgPain)
         ))
 
-        // Strongest correlation insight
         if let strongest = correlations.first, abs(strongest.coefficient) > 0.3 {
             insights.append(Insight(
                 type: .correlation,
@@ -195,49 +156,48 @@ final class AnalysisService: ObservableObject {
 
         return insights
     }
+}
 
-    // MARK: - Mock Analysis (for demo/testing)
+// MARK: - Sendable data extraction for background computation
 
-    private func generateMockAnalysis() {
-        correlations = [
-            CorrelationResult(
-                factor: .pressure,
-                coefficient: -0.78,
-                sampleSize: 30,
-                description: "低気圧接近時に痛みが悪化する傾向"
-            ),
-            CorrelationResult(
-                factor: .sleepDuration,
-                coefficient: -0.65,
-                sampleSize: 28,
-                description: "睡眠不足の翌日に痛みが増加"
-            ),
-            CorrelationResult(
-                factor: .stepCount,
-                coefficient: 0.12,
-                sampleSize: 25,
-                description: "活動量との相関は弱い"
-            )
-        ]
+struct AnalysisRecordData: Sendable {
+    let painLevel: Int
+    let bodyParts: [BodyPart]
+    let pressure: Double?
+    let temperature: Double?
+    let humidity: Double?
+    let sleepDuration: Double?
+    let stepCount: Int?
+    let heartRate: Double?
 
-        insights = [
-            Insight(type: .pattern, title: "最も多い痛み部位", description: "腰の痛みが最も多く記録されています"),
-            Insight(type: .correlation, title: "主な相関要因", description: "気圧の変化と痛みに強い相関があります"),
-            Insight(type: .summary, title: "記録状況", description: "より正確な分析のため、継続的な記録をお勧めします")
-        ]
-
-        lastAnalyzedDate = Date()
+    init(record: PainRecord) {
+        self.painLevel = record.painLevel
+        self.bodyParts = record.bodyParts
+        self.pressure = record.weatherData?.pressure
+        self.temperature = record.weatherData?.temperature
+        self.humidity = record.weatherData?.humidity
+        self.sleepDuration = record.healthData?.sleepDuration
+        self.stepCount = record.healthData?.stepCount.map(Int.init)
+        self.heartRate = record.healthData?.heartRate
     }
 }
 
-// MARK: - Correlation Result (uses existing CorrelationFactor from AnalysisResult.swift)
+// MARK: - Correlation Result
 
-struct CorrelationResult: Identifiable {
-    let id = UUID()
+struct CorrelationResult: Identifiable, Sendable {
+    let id: String
     let factor: CorrelationFactor
     let coefficient: Double
     let sampleSize: Int
     let description: String
+
+    init(factor: CorrelationFactor, coefficient: Double, sampleSize: Int, description: String) {
+        self.id = factor.rawValue
+        self.factor = factor
+        self.coefficient = coefficient
+        self.sampleSize = sampleSize
+        self.description = description
+    }
 
     var strength: CorrelationStrength {
         let absCoeff = abs(coefficient)
@@ -255,14 +215,21 @@ struct CorrelationResult: Identifiable {
 
 // MARK: - Insight
 
-struct Insight: Identifiable {
-    let id = UUID()
+struct Insight: Identifiable, Sendable {
+    let id: String
     let type: InsightType
     let title: String
     let description: String
+
+    init(type: InsightType, title: String, description: String) {
+        self.id = "\(type)-\(title)"
+        self.type = type
+        self.title = title
+        self.description = description
+    }
 }
 
-enum InsightType {
+enum InsightType: Sendable {
     case pattern
     case correlation
     case summary

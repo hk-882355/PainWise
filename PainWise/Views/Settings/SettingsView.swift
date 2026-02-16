@@ -8,15 +8,18 @@ struct SettingsView: View {
     // Services
     private let healthKitService = HealthKitService.shared
     private let weatherService = WeatherService.shared
-    @StateObject private var notificationService = NotificationService.shared
+    @ObservedObject private var notificationService = NotificationService.shared
 
     // Notification Settings
-    @State private var morningNotificationEnabled = true
-    @State private var morningTime = Calendar.current.date(from: DateComponents(hour: 8, minute: 0)) ?? Date()
-    @State private var afternoonNotificationEnabled = false
-    @State private var afternoonTime = Calendar.current.date(from: DateComponents(hour: 13, minute: 0)) ?? Date()
-    @State private var eveningNotificationEnabled = true
-    @State private var eveningTime = Calendar.current.date(from: DateComponents(hour: 21, minute: 0)) ?? Date()
+    @AppStorage("morningNotificationEnabled") private var morningNotificationEnabled = true
+    @AppStorage("morningNotificationMinutes") private var morningNotificationMinutes = 8 * 60
+    @State private var morningTime = Date()
+    @AppStorage("afternoonNotificationEnabled") private var afternoonNotificationEnabled = false
+    @AppStorage("afternoonNotificationMinutes") private var afternoonNotificationMinutes = 13 * 60
+    @State private var afternoonTime = Date()
+    @AppStorage("eveningNotificationEnabled") private var eveningNotificationEnabled = true
+    @AppStorage("eveningNotificationMinutes") private var eveningNotificationMinutes = 21 * 60
+    @State private var eveningTime = Date()
 
     // Time Picker Sheet
     @State private var showMorningTimePicker = false
@@ -27,14 +30,14 @@ struct SettingsView: View {
     @State private var showNotificationAlert = false
 
     // HealthKit Settings
-    @State private var sleepDataEnabled = true
-    @State private var stepCountEnabled = true
-    @State private var heartRateEnabled = false
-    @State private var locationEnabled = true
+    @AppStorage("sleepDataEnabled") private var sleepDataEnabled = true
+    @AppStorage("stepCountEnabled") private var stepCountEnabled = true
+    @AppStorage("heartRateEnabled") private var heartRateEnabled = false
+    @AppStorage("locationEnabled") private var locationEnabled = true
     @State private var isRequestingHealthKit = false
 
     // Cloud Sync
-    @State private var cloudSyncEnabled = true
+    @AppStorage("cloudSyncEnabled") private var cloudSyncEnabled = false
     @State private var lastSyncText = L10n.settingsJustNow
 
     // Profile
@@ -42,7 +45,7 @@ struct SettingsView: View {
 
     // Premium
     @State private var showPremium = false
-    @StateObject private var storeKit = StoreKitManager.shared
+    @ObservedObject private var storeKit = StoreKitManager.shared
 
     var body: some View {
         NavigationStack {
@@ -61,7 +64,7 @@ struct SettingsView: View {
                     accountSection
 
                     // Version
-                    Text("PainWise v1.0.0 (Build 1)")
+                    Text("PainWise v\(Self.appVersionString)")
                         .font(.caption)
                         .foregroundStyle(Color.gray)
                         .padding(.top, 8)
@@ -98,6 +101,18 @@ struct SettingsView: View {
             }
             .sheet(isPresented: $showProfile) {
                 ProfileView()
+            }
+            .onAppear {
+                syncStoredTimes()
+            }
+            .onChange(of: morningTime) { _, newValue in
+                morningNotificationMinutes = minutesFromTime(newValue)
+            }
+            .onChange(of: afternoonTime) { _, newValue in
+                afternoonNotificationMinutes = minutesFromTime(newValue)
+            }
+            .onChange(of: eveningTime) { _, newValue in
+                eveningNotificationMinutes = minutesFromTime(newValue)
             }
         }
     }
@@ -313,8 +328,8 @@ struct SettingsView: View {
                     components = Calendar.current.dateComponents([.hour, .minute], from: morningTime)
                     await notificationService.scheduleMorningReminder(at: components)
                 case .afternoon:
-                    // Use tracking reminder for afternoon
-                    await notificationService.scheduleTrackingReminder(afterHours: 4)
+                    components = Calendar.current.dateComponents([.hour, .minute], from: afternoonTime)
+                    await notificationService.scheduleAfternoonReminder(at: components)
                 case .evening:
                     components = Calendar.current.dateComponents([.hour, .minute], from: eveningTime)
                     await notificationService.scheduleEveningReminder(at: components)
@@ -325,7 +340,7 @@ struct SettingsView: View {
                 case .morning:
                     await notificationService.cancelNotification(identifier: "morning_reminder")
                 case .afternoon:
-                    await notificationService.cancelNotification(identifier: "tracking_reminder")
+                    await notificationService.cancelNotification(identifier: "afternoon_reminder")
                 case .evening:
                     await notificationService.cancelNotification(identifier: "evening_reminder")
                 }
@@ -335,8 +350,18 @@ struct SettingsView: View {
 
     // MARK: - HealthKit Section
     private var healthKitSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        let healthKitLocked = !storeKit.isPremium
+        return VStack(alignment: .leading, spacing: 8) {
             sectionHeader(L10n.settingsDataIntegration)
+
+            if healthKitLocked {
+                PremiumGateCard(
+                    title: "HealthKit連携はプレミアム",
+                    message: "睡眠・歩数・心拍数を自動取得できます。",
+                    buttonTitle: "プレミアムを見る",
+                    onUpgrade: { showPremium = true }
+                )
+            }
 
             VStack(spacing: 0) {
                 HealthKitRow(
@@ -344,9 +369,11 @@ struct SettingsView: View {
                     iconColor: .indigo,
                     title: L10n.settingsSleepData,
                     isEnabled: $sleepDataEnabled,
+                    isLocked: healthKitLocked,
                     onToggle: { enabled in
                         if enabled { requestHealthKitAuthorization() }
-                    }
+                    },
+                    onLockedTap: { showPremium = true }
                 )
 
                 Divider()
@@ -357,9 +384,11 @@ struct SettingsView: View {
                     iconColor: .green,
                     title: L10n.settingsStepCount,
                     isEnabled: $stepCountEnabled,
+                    isLocked: healthKitLocked,
                     onToggle: { enabled in
                         if enabled { requestHealthKitAuthorization() }
-                    }
+                    },
+                    onLockedTap: { showPremium = true }
                 )
 
                 Divider()
@@ -370,9 +399,11 @@ struct SettingsView: View {
                     iconColor: .red,
                     title: L10n.settingsHeartRate,
                     isEnabled: $heartRateEnabled,
+                    isLocked: healthKitLocked,
                     onToggle: { enabled in
                         if enabled { requestHealthKitAuthorization() }
-                    }
+                    },
+                    onLockedTap: { showPremium = true }
                 )
 
                 Divider()
@@ -383,9 +414,11 @@ struct SettingsView: View {
                     iconColor: .teal,
                     title: L10n.settingsLocationWeather,
                     isEnabled: $locationEnabled,
+                    isLocked: false,
                     onToggle: { enabled in
                         if enabled { requestLocationAuthorization() }
-                    }
+                    },
+                    onLockedTap: nil
                 )
             }
             .background(colorScheme == .dark ? Color.surfaceDark : Color.white)
@@ -406,7 +439,9 @@ struct SettingsView: View {
             do {
                 try await healthKitService.requestAuthorization()
             } catch {
+                #if DEBUG
                 print("HealthKit authorization failed: \(error)")
+                #endif
             }
             isRequestingHealthKit = false
         }
@@ -446,9 +481,21 @@ struct SettingsView: View {
                 Spacer()
 
                 // Toggle
-                Toggle("", isOn: $cloudSyncEnabled)
-                    .labelsHidden()
-                    .tint(Color.appPrimary)
+                HStack(spacing: 8) {
+                    Text(String(localized: "settings_cloud_sync_coming_soon"))
+                        .font(.caption2)
+                        .fontWeight(.bold)
+                        .foregroundStyle(Color.gray)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.gray.opacity(0.15))
+                        .clipShape(Capsule())
+
+                    Toggle("", isOn: $cloudSyncEnabled)
+                        .labelsHidden()
+                        .tint(Color.appPrimary)
+                        .disabled(true)
+                }
             }
             .padding(16)
             .background(colorScheme == .dark ? Color.surfaceDark : Color.white)
@@ -471,10 +518,38 @@ struct SettingsView: View {
             .padding(.leading, 8)
     }
 
+    private static let appVersionString: String = {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
+        return "\(version) (Build \(build))"
+    }()
+
+    private static let timeFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm"
+        return f
+    }()
+
     private func timeString(from date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm"
-        return formatter.string(from: date)
+        Self.timeFormatter.string(from: date)
+    }
+
+    private func syncStoredTimes() {
+        morningTime = timeFromMinutes(morningNotificationMinutes)
+        afternoonTime = timeFromMinutes(afternoonNotificationMinutes)
+        eveningTime = timeFromMinutes(eveningNotificationMinutes)
+    }
+
+    private func timeFromMinutes(_ minutes: Int) -> Date {
+        let normalized = (minutes % (24 * 60) + (24 * 60)) % (24 * 60)
+        let hour = normalized / 60
+        let minute = normalized % 60
+        return Calendar.current.date(from: DateComponents(hour: hour, minute: minute)) ?? Date()
+    }
+
+    private func minutesFromTime(_ date: Date) -> Int {
+        let components = Calendar.current.dateComponents([.hour, .minute], from: date)
+        return (components.hour ?? 0) * 60 + (components.minute ?? 0)
     }
 }
 
@@ -597,7 +672,9 @@ struct HealthKitRow: View {
     let iconColor: Color
     let title: String
     @Binding var isEnabled: Bool
+    let isLocked: Bool
     var onToggle: ((Bool) -> Void)?
+    var onLockedTap: (() -> Void)?
 
     var body: some View {
         HStack(spacing: 12) {
@@ -618,15 +695,86 @@ struct HealthKitRow: View {
 
             Spacer()
 
-            // Toggle
-            Toggle("", isOn: $isEnabled)
-                .labelsHidden()
-                .tint(Color.appPrimary)
-                .onChange(of: isEnabled) { _, newValue in
-                    onToggle?(newValue)
-                }
+            if isLocked {
+                PremiumBadge(text: "Premium")
+            } else {
+                Toggle("", isOn: $isEnabled)
+                    .labelsHidden()
+                    .tint(Color.appPrimary)
+                    .onChange(of: isEnabled) { _, newValue in
+                        onToggle?(newValue)
+                    }
+            }
         }
         .padding(16)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if isLocked {
+                onLockedTap?()
+            }
+        }
+    }
+}
+
+// MARK: - Premium Components
+struct PremiumGateCard: View {
+    @Environment(\.colorScheme) private var colorScheme
+
+    let title: String
+    let message: String
+    let buttonTitle: String
+    let onUpgrade: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Image(systemName: "lock.fill")
+                    .foregroundStyle(Color.appPrimary)
+                Text(title)
+                    .font(.headline)
+                    .fontWeight(.bold)
+            }
+
+            Text(message)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
+            Button(action: onUpgrade) {
+                Text(buttonTitle)
+                    .fontWeight(.bold)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(Color.appPrimary)
+                    .foregroundStyle(.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+            }
+        }
+        .padding(16)
+        .background(colorScheme == .dark ? Color.surfaceDark : Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(colorScheme == .dark ? Color.white.opacity(0.05) : Color.gray.opacity(0.1), lineWidth: 1)
+        )
+    }
+}
+
+struct PremiumBadge: View {
+    let text: String
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "lock.fill")
+                .font(.caption2)
+            Text(text)
+                .font(.caption2)
+                .fontWeight(.bold)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(Color.appPrimary.opacity(0.12))
+        .foregroundStyle(Color.appPrimary)
+        .clipShape(Capsule())
     }
 }
 

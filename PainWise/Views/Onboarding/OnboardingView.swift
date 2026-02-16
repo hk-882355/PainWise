@@ -13,6 +13,7 @@ struct OnboardingView: View {
 
     private let notificationService = NotificationService.shared
     private let healthKitService = HealthKitService.shared
+    @ObservedObject private var storeKit = StoreKitManager.shared
 
     var body: some View {
         ZStack {
@@ -139,15 +140,43 @@ struct OnboardingView: View {
                 action: requestNotifications
             )
 
-            // HealthKit Permission
-            permissionCard(
-                icon: "heart.fill",
-                iconColor: .red,
-                title: String(localized: "onboarding_health_title"),
-                description: String(localized: "onboarding_health_description"),
-                isEnabled: $healthKitEnabled,
-                action: requestHealthKit
-            )
+            if storeKit.isPremium {
+                permissionCard(
+                    icon: "heart.fill",
+                    iconColor: .red,
+                    title: String(localized: "onboarding_health_title"),
+                    description: String(localized: "onboarding_health_description"),
+                    isEnabled: $healthKitEnabled,
+                    action: requestHealthKit
+                )
+            } else {
+                HStack(spacing: 16) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.gray.opacity(0.1))
+                            .frame(width: 56, height: 56)
+
+                        Image(systemName: "lock.fill")
+                            .font(.title2)
+                            .foregroundStyle(Color.gray)
+                    }
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(String(localized: "onboarding_health_title"))
+                            .font(.headline)
+                            .fontWeight(.bold)
+
+                        Text(String(localized: "onboarding_health_premium_only"))
+                            .font(.caption)
+                            .foregroundStyle(Color.gray)
+                    }
+
+                    Spacer()
+                }
+                .padding(16)
+                .background(colorScheme == .dark ? Color.surfaceDark : Color.white)
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+            }
 
             Spacer()
         }
@@ -231,8 +260,11 @@ struct OnboardingView: View {
             if currentPage < 2 {
                 Button {
                     // Save name if on profile page
-                    if currentPage == 1 && !inputName.isEmpty {
-                        userName = inputName
+                    if currentPage == 1 {
+                        let trimmed = inputName.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if !trimmed.isEmpty {
+                            userName = trimmed
+                        }
                     }
                     withAnimation {
                         currentPage += 1
@@ -292,7 +324,9 @@ struct OnboardingView: View {
                     healthKitEnabled = true
                 }
             } catch {
+                #if DEBUG
                 print("HealthKit authorization failed: \(error)")
+                #endif
                 await MainActor.run {
                     showHealthKitUnavailableAlert = true
                 }
@@ -302,8 +336,9 @@ struct OnboardingView: View {
 
     private func completeOnboarding() {
         // Save name if entered
-        if !inputName.isEmpty {
-            userName = inputName
+        let trimmed = inputName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty {
+            userName = trimmed
         }
         // Mark onboarding as complete
         hasCompletedOnboarding = true

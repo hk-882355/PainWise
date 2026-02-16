@@ -5,7 +5,9 @@ struct AnalysisView: View {
     @Environment(\.colorScheme) var colorScheme
     @Query(sort: \PainRecord.timestamp, order: .reverse) private var records: [PainRecord]
 
-    @StateObject private var analysisService = AnalysisService.shared
+    @ObservedObject private var analysisService = AnalysisService.shared
+    @ObservedObject private var storeKit = StoreKitManager.shared
+    @State private var showPremium = false
 
     var body: some View {
         NavigationStack {
@@ -15,15 +17,19 @@ struct AnalysisView: View {
                     headerSection
 
                     // Correlation Cards Carousel
-                    if !analysisService.correlations.isEmpty {
-                        correlationCarousel
+                    if storeKit.isPremium {
+                        if !analysisService.correlations.isEmpty {
+                            correlationCarousel
+                        }
+
+                        // Summary
+                        summarySection
+
+                        // Recommendations
+                        recommendationsSection
+                    } else {
+                        premiumLockedSection
                     }
-
-                    // AI Summary
-                    aiSummarySection
-
-                    // Recommendations
-                    recommendationsSection
                 }
                 .padding(.bottom, 100)
             }
@@ -36,20 +42,25 @@ struct AnalysisView: View {
                         .fontWeight(.bold)
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: { refreshAnalysis() }) {
-                        Image(systemName: analysisService.isAnalyzing ? "arrow.clockwise" : "arrow.triangle.2.circlepath")
+                    Button(action: { storeKit.isPremium ? refreshAnalysis() : (showPremium = true) }) {
+                        Image(systemName: storeKit.isPremium ? (analysisService.isAnalyzing ? "arrow.clockwise" : "arrow.triangle.2.circlepath") : "lock.fill")
                     }
-                    .disabled(analysisService.isAnalyzing)
+                    .disabled(storeKit.isPremium ? analysisService.isAnalyzing : false)
                 }
             }
             .task {
+                guard storeKit.isPremium else { return }
                 await analysisService.analyzeRecords(records)
             }
             .onChange(of: records.count) { _, _ in
+                guard storeKit.isPremium else { return }
                 Task {
                     await analysisService.analyzeRecords(records)
                 }
             }
+        }
+        .sheet(isPresented: $showPremium) {
+            PremiumView()
         }
     }
 
@@ -107,8 +118,8 @@ struct AnalysisView: View {
         }
     }
 
-    // MARK: - AI Summary
-    private var aiSummarySection: some View {
+    // MARK: - Summary
+    private var summarySection: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 8) {
                 Image(systemName: "sparkles")
@@ -154,6 +165,33 @@ struct AnalysisView: View {
                 RoundedRectangle(cornerRadius: 16)
                     .stroke(Color.appPrimary.opacity(0.2), lineWidth: 1)
             )
+        }
+        .padding(.horizontal, 20)
+    }
+
+    private var premiumLockedSection: some View {
+        VStack(spacing: 16) {
+            PremiumGateCard(
+                title: "分析レポートはプレミアム",
+                message: "相関サマリー・おすすめアクションが利用できます。",
+                buttonTitle: "プレミアムを見る",
+                onUpgrade: { showPremium = true }
+            )
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("使える場所")
+                    .font(.caption)
+                    .fontWeight(.bold)
+                    .foregroundStyle(Color.gray)
+                    .textCase(.uppercase)
+                    .tracking(1)
+
+                Text("・分析タブ：相関サマリー\\n・履歴タブ：PDFエクスポート")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 4)
         }
         .padding(.horizontal, 20)
     }

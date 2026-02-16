@@ -1,10 +1,19 @@
 import SwiftUI
 import SwiftData
+import UserNotifications
+import FirebaseCrashlytics
 
 struct DashboardView: View {
     @Environment(\.colorScheme) var colorScheme
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: \PainRecord.timestamp, order: .reverse) private var recentRecords: [PainRecord]
+    @Query(sort: \PainRecord.timestamp, order: .reverse, animation: .default)
+    private var recentRecords: [PainRecord]
+
+    init() {
+        var descriptor = FetchDescriptor<PainRecord>(sortBy: [SortDescriptor(\.timestamp, order: .reverse)])
+        descriptor.fetchLimit = 30
+        _recentRecords = Query(descriptor)
+    }
 
     // Weather Service
     private let weatherService = WeatherService.shared
@@ -13,10 +22,12 @@ struct DashboardView: View {
 
     @State private var showQuickRecord = false
     @State private var showNotifications = false
+    @State private var hasPendingNotifications = false
     @State private var showForecastDetail = false
     @State private var showAdviceDetail = false
     @State private var selectedAdvice: (category: String, title: String, description: String, imageName: String)?
     @AppStorage("userName") private var userName: String = ""
+    @AppStorage("locationEnabled") private var locationEnabled = true
 
     var body: some View {
         NavigationStack {
@@ -31,7 +42,8 @@ struct DashboardView: View {
                             alertLevel: alertLevelFromPressureChange(forecast.pressureChange),
                             pressure: Int(forecast.pressure),
                             message: generateForecastMessage(forecast),
-                            accuracy: calculateAccuracy(),
+                            accuracy: calculateDataRichness(),
+                            weatherCondition: forecast.condition,
                             onViewDetail: { showForecastDetail = true }
                         )
                     } else if isLoadingForecast {
@@ -68,6 +80,11 @@ struct DashboardView: View {
             .navigationBarHidden(true)
             .task {
                 await loadTodayForecast()
+                let pending = await UNUserNotificationCenter.current().pendingNotificationRequests()
+                hasPendingNotifications = !pending.isEmpty
+            }
+            .onChange(of: locationEnabled) { _, _ in
+                Task { await loadTodayForecast() }
             }
         }
         .sheet(isPresented: $showQuickRecord) {
@@ -93,16 +110,25 @@ struct DashboardView: View {
 
     // MARK: - Forecast Helpers
     private func loadTodayForecast() async {
+        guard locationEnabled else {
+            todayForecast = nil
+            isLoadingForecast = false
+            return
+        }
+
         isLoadingForecast = true
+        defer { isLoadingForecast = false }
         do {
             let forecasts = try await weatherService.fetchForecast()
             if let today = forecasts.first {
                 todayForecast = today
             }
         } catch {
+            #if DEBUG
             print("Failed to load forecast: \(error)")
+            #endif
+            Crashlytics.crashlytics().record(error: error)
         }
-        isLoadingForecast = false
     }
 
     private func alertLevelFromPressureChange(_ change: Double) -> AlertLevel {
@@ -121,11 +147,10 @@ struct DashboardView: View {
         }
     }
 
-    private func calculateAccuracy() -> Int {
-        // Base accuracy + bonus for more records
-        let baseAccuracy = 70
-        let recordBonus = min(20, recentRecords.count * 2)
-        return baseAccuracy + recordBonus
+    private func calculateDataRichness() -> Int {
+        // Data richness score based on record count (0-100)
+        // More records = better data for prediction
+        return min(100, recentRecords.count * 5)
     }
 
     // MARK: - Header Section
@@ -164,10 +189,12 @@ struct DashboardView: View {
                         .font(.title2)
                         .foregroundStyle(colorScheme == .dark ? .white : .gray)
 
-                    Circle()
-                        .fill(Color.red)
-                        .frame(width: 8, height: 8)
-                        .offset(x: 2, y: -2)
+                    if hasPendingNotifications {
+                        Circle()
+                            .fill(Color.red)
+                            .frame(width: 8, height: 8)
+                            .offset(x: 2, y: -2)
+                    }
                 }
             }
             .frame(width: 40, height: 40)

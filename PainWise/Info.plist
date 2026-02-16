@@ -31,6 +31,8 @@
     <dict>
         <key>UIColorName</key>
         <string>LaunchScreenBackground</string>
+        <key>UIImageName</key>
+        <string>LaunchLogo</string>
     </dict>
     <key>UIRequiredDeviceCapabilities</key>
     <array>
@@ -51,11 +53,9 @@
     <string>Automatic</string>
     <key>NSHealthShareUsageDescription</key>
     <string>痛みと睡眠・歩数データの相関を分析するためにヘルスケアデータへのアクセスが必要です。</string>
-    <key>NSHealthUpdateUsageDescription</key>
-    <string>痛みの記録をヘルスケアに保存するためにアクセスが必要です。</string>
-    <key>NSLocationWhenInUseUsageDescription</key>
-    <string>現在地の気圧データを取得し、痛みとの相関を分析するために位置情報を使用します。</string>
-    <key>NSUserTrackingUsageDescription</key>
-    <string>より良いコンテンツを提供するために使用されます。</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>現在地の気圧データを取得し、痛みとの相関を分析するために位置情報を使用します。</string>
+	<key>OpenWeatherMapAPIKey</key>
+		<string>$(OPEN_WEATHER_MAP_API_KEY)</string>
 </dict>
 </plist>

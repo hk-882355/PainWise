@@ -41,7 +41,12 @@ final class HealthKitService: ObservableObject {
         }
 
         try await healthStore.requestAuthorization(toShare: [], read: typesToRead)
-        isAuthorized = true
+        // Check actual authorization status for each type
+        // HKHealthStore doesn't reveal read authorization directly,
+        // so we verify by attempting a small query
+        isAuthorized = typesToRead.allSatisfy { type in
+            healthStore.authorizationStatus(for: type) != .sharingDenied
+        }
     }
 
     // MARK: - Fetch Step Count
@@ -170,43 +175,62 @@ final class HealthKitService: ObservableObject {
     // MARK: - Fetch All Today's Data
 
     func fetchTodayHealthData() async -> HealthSnapshot {
-        var stepCount: Int?
-        var sleepHours: Double?
-        var heartRate: Double?
+        // Run all 3 queries in parallel
+        async let stepsResult = fetchStepCountSafe()
+        async let sleepResult = fetchSleepSafe()
+        async let heartRateResult = fetchHeartRateSafe()
 
-        do {
-            stepCount = try await fetchTodayStepCount()
-            self.stepCount = stepCount
-        } catch {
-            print("Failed to fetch step count: \(error)")
-        }
+        let (steps, sleep, hr) = await (stepsResult, sleepResult, heartRateResult)
 
-        do {
-            sleepHours = try await fetchLastNightSleep()
-            self.sleepHours = sleepHours
-        } catch {
-            print("Failed to fetch sleep data: \(error)")
-        }
-
-        do {
-            heartRate = try await fetchLatestHeartRate()
-            self.heartRate = heartRate
-        } catch {
-            print("Failed to fetch heart rate: \(error)")
-        }
+        self.stepCount = steps
+        self.sleepHours = sleep
+        self.heartRate = hr
 
         return HealthSnapshot(
-            stepCount: stepCount != nil ? Double(stepCount!) : nil,
-            sleepDuration: sleepHours,
-            heartRate: heartRate,
+            stepCount: steps.map(Double.init),
+            sleepDuration: sleep,
+            heartRate: hr,
             timestamp: Date()
         )
+    }
+
+    private func fetchStepCountSafe() async -> Int? {
+        do {
+            return try await fetchTodayStepCount()
+        } catch {
+            #if DEBUG
+            print("Failed to fetch step count: \(error)")
+            #endif
+            return nil
+        }
+    }
+
+    private func fetchSleepSafe() async -> Double? {
+        do {
+            return try await fetchLastNightSleep()
+        } catch {
+            #if DEBUG
+            print("Failed to fetch sleep data: \(error)")
+            #endif
+            return nil
+        }
+    }
+
+    private func fetchHeartRateSafe() async -> Double? {
+        do {
+            return try await fetchLatestHeartRate()
+        } catch {
+            #if DEBUG
+            print("Failed to fetch heart rate: \(error)")
+            #endif
+            return nil
+        }
     }
 }
 
 // MARK: - Errors
 
-enum HealthKitError: LocalizedError {
+enum HealthKitError: LocalizedError, Sendable {
     case notAvailable
     case typeNotAvailable
     case authorizationDenied

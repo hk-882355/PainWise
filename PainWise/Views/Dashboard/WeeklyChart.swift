@@ -46,9 +46,27 @@ struct WeeklyChartSection: View {
         }
     }
 
+    private var filteredRecords: [PainRecord] {
+        let calendar = Calendar.current
+        let now = Date()
+
+        let cutoffDate: Date?
+        switch selectedPeriod {
+        case "今週":
+            cutoffDate = calendar.date(byAdding: .day, value: -7, to: now)
+        case "今月":
+            cutoffDate = calendar.date(byAdding: .month, value: -1, to: now)
+        default: // "全期間"
+            cutoffDate = nil
+        }
+
+        guard let cutoff = cutoffDate else { return records }
+        return records.filter { $0.timestamp >= cutoff }
+    }
+
     @ViewBuilder
     private var chartView: some View {
-        if records.isEmpty {
+        if filteredRecords.isEmpty {
             // Demo data when no records
             let demoData = generateDemoData()
             Chart(demoData) { item in
@@ -100,7 +118,7 @@ struct WeeklyChartSection: View {
             .chartYScale(domain: 0...10)
         } else {
             // Real data
-            let chartData = records.enumerated().map { index, record in
+            let chartData = filteredRecords.enumerated().map { index, record in
                 ChartDataPoint(
                     day: dayLabel(for: index),
                     level: record.painLevel,
@@ -133,9 +151,20 @@ struct WeeklyChartSection: View {
         }
     }
 
+    private static let dayOfWeekFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ja_JP")
+        formatter.dateFormat = "E"
+        return formatter
+    }()
+
     private func dayLabel(for index: Int) -> String {
-        let days = ["今日", "土", "金", "木", "水", "火", "月"]
-        return index < days.count ? days[index] : "\(index)"
+        guard index < filteredRecords.count else { return "\(index)" }
+        let date = filteredRecords[index].timestamp
+        if Calendar.current.isDateInToday(date) {
+            return "今日"
+        }
+        return Self.dayOfWeekFormatter.string(from: date)
     }
 
     private func generateDemoData() -> [ChartDataPoint] {
@@ -148,10 +177,17 @@ struct WeeklyChartSection: View {
 }
 
 struct ChartDataPoint: Identifiable {
-    let id = UUID()
+    let id: String
     let day: String
     let level: Int
     let isToday: Bool
+
+    init(day: String, level: Int, isToday: Bool) {
+        self.id = day
+        self.day = day
+        self.level = level
+        self.isToday = isToday
+    }
 }
 
 #Preview {

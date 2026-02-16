@@ -103,6 +103,11 @@ struct ProfileView: View {
                         .padding(16)
                         .background(colorScheme == .dark ? Color.surfaceDark : Color.white)
                         .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .onChange(of: editedName) { _, newValue in
+                            if newValue.count > 30 {
+                                editedName = String(newValue.prefix(30))
+                            }
+                        }
                 } else {
                     Text(userName.isEmpty ? L10n.profileNotSet : userName)
                         .padding(16)
@@ -196,7 +201,7 @@ struct ProfileView: View {
                 .textCase(.uppercase)
 
             VStack(spacing: 0) {
-                aboutRow(title: L10n.profileVersion, value: "1.0.0 (Build 1)")
+                aboutRow(title: L10n.profileVersion, value: Self.appVersionString)
                 Divider()
                     .background(colorScheme == .dark ? Color.white.opacity(0.05) : Color.gray.opacity(0.1))
                 aboutRow(title: L10n.profileTerms, showChevron: true)
@@ -233,17 +238,27 @@ struct ProfileView: View {
 
     // MARK: - Helpers
     private func saveProfile() {
-        userName = editedName
-        if let age = Int(editedAge) {
+        userName = String(editedName.prefix(30))
+        if let age = Int(editedAge), (0...150).contains(age) {
             userAge = age
         }
     }
 
+    private static let appVersionString: String = {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
+        return "\(version) (Build \(build))"
+    }()
+
+    private static let monthFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy/M"
+        return f
+    }()
+
     private func formattedFirstRecordDate() -> String {
         if let date = UserDefaults.standard.object(forKey: "firstRecordDate") as? Date {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "yyyy/M"
-            return formatter.string(from: date)
+            return Self.monthFormatter.string(from: date)
         }
         return "-"
     }

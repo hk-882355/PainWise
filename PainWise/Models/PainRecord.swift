@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 import SwiftData
 
 @Model
@@ -24,7 +25,7 @@ final class PainRecord {
     ) {
         self.id = id
         self.timestamp = timestamp
-        self.painLevel = painLevel
+        self.painLevel = min(10, max(0, painLevel))
         self.bodyParts = bodyParts
         self.painTypes = painTypes
         self.note = note
@@ -40,9 +41,19 @@ final class PainRecord {
         default: return .extreme
         }
     }
+
+    var painLevelText: String {
+        painSeverity.localizedName
+    }
+
+    var painLevelColor: Color {
+        painSeverity.color
+    }
 }
 
-enum BodyPart: String, Codable, CaseIterable {
+/// Raw values are Japanese strings used as stable persistence identifiers.
+/// Use `localizedName` for display (defined in Localization.swift).
+enum BodyPart: String, Codable, CaseIterable, Sendable {
     case head = "頭"
     case neck = "首"
     case leftShoulder = "左肩"
@@ -90,7 +101,7 @@ enum BodyPart: String, Codable, CaseIterable {
     }
 }
 
-enum PainType: String, Codable, CaseIterable {
+enum PainType: String, Codable, CaseIterable, Sendable {
     case throbbing = "ズキズキ"
     case tingling = "ピリピリ"
     case dull = "鈍痛"
@@ -124,23 +135,41 @@ enum PainType: String, Codable, CaseIterable {
     }
 }
 
-enum PainSeverity: String {
+enum PainSeverity: String, Sendable {
     case mild = "軽い"
     case moderate = "中度"
     case severe = "強い"
     case extreme = "激痛"
 
-    var color: String {
+    var color: Color {
         switch self {
-        case .mild: return "primary"
-        case .moderate: return "yellow"
-        case .severe: return "orange"
-        case .extreme: return "red"
+        case .mild: return .green
+        case .moderate: return .yellow
+        case .severe: return .orange
+        case .extreme: return .red
+        }
+    }
+
+    var localizedName: String {
+        switch self {
+        case .mild: return L10n.painSeverityMild
+        case .moderate: return L10n.painSeverityModerate
+        case .severe: return L10n.painSeveritySevere
+        case .extreme: return L10n.painSeverityExtreme
+        }
+    }
+
+    static func fromLevel(_ level: Int) -> PainSeverity {
+        switch level {
+        case 0...2: return .mild
+        case 3...5: return .moderate
+        case 6...8: return .severe
+        default: return .extreme
         }
     }
 }
 
-struct WeatherSnapshot: Codable {
+struct WeatherSnapshot: Codable, Sendable {
     var pressure: Double // hPa
     var temperature: Double // Celsius
     var humidity: Double // %
@@ -148,7 +177,7 @@ struct WeatherSnapshot: Codable {
     var timestamp: Date
 }
 
-struct HealthSnapshot: Codable {
+struct HealthSnapshot: Codable, Sendable {
     var stepCount: Double?
     var sleepDuration: Double?
     var heartRate: Double?

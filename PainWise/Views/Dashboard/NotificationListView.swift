@@ -4,7 +4,7 @@ import UserNotifications
 struct NotificationListView: View {
     @Environment(\.colorScheme) var colorScheme
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var notificationService = NotificationService.shared
+    @ObservedObject private var notificationService = NotificationService.shared
 
     var body: some View {
         NavigationStack {

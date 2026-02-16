@@ -24,14 +24,21 @@ final class NotificationService: ObservableObject {
             isAuthorized = granted
             return granted
         } catch {
+            #if DEBUG
             print("Notification authorization failed: \(error)")
+            #endif
             return false
         }
     }
 
     func checkAuthorizationStatus() async {
         let settings = await notificationCenter.notificationSettings()
-        isAuthorized = settings.authorizationStatus == .authorized
+        switch settings.authorizationStatus {
+        case .authorized, .provisional, .ephemeral:
+            isAuthorized = true
+        default:
+            isAuthorized = false
+        }
     }
 
     // MARK: - Schedule Daily Reminders
@@ -50,9 +57,13 @@ final class NotificationService: ObservableObject {
 
         do {
             try await notificationCenter.add(request)
+            #if DEBUG
             print("Morning reminder scheduled")
+            #endif
         } catch {
+            #if DEBUG
             print("Failed to schedule morning reminder: \(error)")
+            #endif
         }
     }
 
@@ -70,9 +81,13 @@ final class NotificationService: ObservableObject {
 
         do {
             try await notificationCenter.add(request)
+            #if DEBUG
             print("Evening reminder scheduled")
+            #endif
         } catch {
+            #if DEBUG
             print("Failed to schedule evening reminder: \(error)")
+            #endif
         }
     }
 
@@ -98,9 +113,13 @@ final class NotificationService: ObservableObject {
 
         do {
             try await notificationCenter.add(request)
+            #if DEBUG
             print("Weather alert scheduled")
+            #endif
         } catch {
+            #if DEBUG
             print("Failed to schedule weather alert: \(error)")
+            #endif
         }
     }
 
@@ -111,15 +130,44 @@ final class NotificationService: ObservableObject {
         content.title = L10n.notificationTrackingTitle
         content.body = L10n.notificationTrackingBody
         content.sound = .default
+        content.categoryIdentifier = "RECORD_REMINDER"
 
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: TimeInterval(hours * 3600), repeats: false)
         let request = UNNotificationRequest(identifier: "tracking_reminder", content: content, trigger: trigger)
 
         do {
             try await notificationCenter.add(request)
+            #if DEBUG
             print("Tracking reminder scheduled for \(hours) hours")
+            #endif
         } catch {
+            #if DEBUG
             print("Failed to schedule tracking reminder: \(error)")
+            #endif
+        }
+    }
+
+    func scheduleAfternoonReminder(at time: DateComponents) async {
+        await cancelNotification(identifier: "afternoon_reminder")
+
+        let content = UNMutableNotificationContent()
+        content.title = L10n.notificationTrackingTitle
+        content.body = L10n.notificationTrackingBody
+        content.sound = .default
+        content.categoryIdentifier = "RECORD_REMINDER"
+
+        let trigger = UNCalendarNotificationTrigger(dateMatching: time, repeats: true)
+        let request = UNNotificationRequest(identifier: "afternoon_reminder", content: content, trigger: trigger)
+
+        do {
+            try await notificationCenter.add(request)
+            #if DEBUG
+            print("Afternoon reminder scheduled")
+            #endif
+        } catch {
+            #if DEBUG
+            print("Failed to schedule afternoon reminder: \(error)")
+            #endif
         }
     }
 
@@ -136,6 +184,7 @@ final class NotificationService: ObservableObject {
     func cancelDailyReminders() async {
         notificationCenter.removePendingNotificationRequests(withIdentifiers: [
             "morning_reminder",
+            "afternoon_reminder",
             "evening_reminder"
         ])
     }
@@ -197,6 +246,8 @@ final class NotificationService: ObservableObject {
     func configureFromSettings(
         morningEnabled: Bool,
         morningTime: Date,
+        afternoonEnabled: Bool,
+        afternoonTime: Date,
         eveningEnabled: Bool,
         eveningTime: Date
     ) async {
@@ -207,6 +258,11 @@ final class NotificationService: ObservableObject {
         if morningEnabled {
             let morningComponents = Calendar.current.dateComponents([.hour, .minute], from: morningTime)
             await scheduleMorningReminder(at: morningComponents)
+        }
+
+        if afternoonEnabled {
+            let afternoonComponents = Calendar.current.dateComponents([.hour, .minute], from: afternoonTime)
+            await scheduleAfternoonReminder(at: afternoonComponents)
         }
 
         if eveningEnabled {

@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import FirebaseCrashlytics
 
 struct HistoryView: View {
     @Environment(\.colorScheme) var colorScheme
@@ -8,7 +9,9 @@ struct HistoryView: View {
 
     // Services
     private let pdfService = PDFReportService.shared
-    @StateObject private var analysisService = AnalysisService.shared
+    @ObservedObject private var analysisService = AnalysisService.shared
+    @ObservedObject private var storeKit = StoreKitManager.shared
+    @AppStorage("userName") private var userName: String = ""
 
     // PDF States
     @State private var isGeneratingPDF = false
@@ -16,11 +19,36 @@ struct HistoryView: View {
     @State private var pdfData: Data?
 
     @State private var searchText = ""
-    @State private var selectedPeriod = L10n.historyPeriodThisWeek
+    @State private var debouncedSearchText = ""
+    @State private var searchDebounceTask: Task<Void, Never>?
+    @State private var selectedPeriod: PeriodFilter = .thisWeek
     @State private var selectedIntensityFilter: IntensityFilter = .all
     @State private var selectedRecord: PainRecord?
     @State private var showPeriodPicker = false
     @State private var showIntensityPicker = false
+    @State private var showPremium = false
+
+    enum PeriodFilter: CaseIterable {
+        case thisWeek, thisMonth, threeMonths, all
+
+        var displayName: String {
+            switch self {
+            case .thisWeek: return L10n.historyPeriodThisWeek
+            case .thisMonth: return String(localized: "history_period_this_month")
+            case .threeMonths: return String(localized: "history_period_3_months")
+            case .all: return String(localized: "history_period_all")
+            }
+        }
+
+        var daysBack: Int? {
+            switch self {
+            case .thisWeek: return 7
+            case .thisMonth: return 30
+            case .threeMonths: return 90
+            case .all: return nil
+            }
+        }
+    }
 
     enum IntensityFilter: CaseIterable {
         case all, high, medium, low
@@ -40,24 +68,17 @@ struct HistoryView: View {
         let calendar = Calendar.current
 
         return records.filter { record in
-            // Search filter
-            let matchesSearch = searchText.isEmpty ||
-                record.bodyParts.contains { $0.rawValue.contains(searchText) } ||
-                record.note.contains(searchText)
+            // Search filter (uses debounced text)
+            let matchesSearch = debouncedSearchText.isEmpty ||
+                record.bodyParts.contains { $0.rawValue.contains(debouncedSearchText) } ||
+                record.note.contains(debouncedSearchText)
 
             // Period filter
             let matchesPeriod: Bool
-            if selectedPeriod == L10n.historyPeriodThisWeek {
-                let weekAgo = calendar.date(byAdding: .day, value: -7, to: now) ?? now
-                matchesPeriod = record.timestamp >= weekAgo
-            } else if selectedPeriod == String(localized: "history_period_this_month") {
-                let monthAgo = calendar.date(byAdding: .day, value: -30, to: now) ?? now
-                matchesPeriod = record.timestamp >= monthAgo
-            } else if selectedPeriod == String(localized: "history_period_3_months") {
-                let threeMonthsAgo = calendar.date(byAdding: .day, value: -90, to: now) ?? now
-                matchesPeriod = record.timestamp >= threeMonthsAgo
+            if let daysBack = selectedPeriod.daysBack {
+                let cutoff = calendar.date(byAdding: .day, value: -daysBack, to: now) ?? now
+                matchesPeriod = record.timestamp >= cutoff
             } else {
-                // All period
                 matchesPeriod = true
             }
 
@@ -81,10 +102,21 @@ struct HistoryView: View {
                 headerView
 
                 // PDF Button
-                pdfButton
-                    .padding(.horizontal, 16)
-                    .padding(.top, 24)
-                    .padding(.bottom, 8)
+                VStack(spacing: 12) {
+                    if !storeKit.isPremium {
+                        PremiumGateCard(
+                            title: "PDFエクスポートはプレミアム",
+                            message: "履歴データをPDFで出力できます。",
+                            buttonTitle: "プレミアムを見る",
+                            onUpgrade: { showPremium = true }
+                        )
+                    }
+
+                    pdfButton
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 24)
+                .padding(.bottom, 8)
 
                 // Search & Filter
                 searchAndFilterSection
@@ -118,31 +150,39 @@ struct HistoryView: View {
                     .presentationDetents([.height(300)])
             }
         }
+        .sheet(isPresented: $showPremium) {
+            PremiumView()
+        }
+        .onChange(of: searchText) { _, newValue in
+            searchDebounceTask?.cancel()
+            if newValue.isEmpty {
+                debouncedSearchText = ""
+            } else {
+                searchDebounceTask = Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(300))
+                    guard !Task.isCancelled else { return }
+                    debouncedSearchText = newValue
+                }
+            }
+        }
     }
 
     // MARK: - Period Picker View
     struct PeriodPickerView: View {
         @Environment(\.dismiss) private var dismiss
         @Environment(\.colorScheme) var colorScheme
-        @Binding var selectedPeriod: String
-
-        private let periods = [
-            L10n.historyPeriodThisWeek,
-            String(localized: "history_period_this_month"),
-            String(localized: "history_period_3_months"),
-            String(localized: "history_period_all")
-        ]
+        @Binding var selectedPeriod: PeriodFilter
 
         var body: some View {
             NavigationStack {
                 List {
-                    ForEach(periods, id: \.self) { period in
+                    ForEach(PeriodFilter.allCases, id: \.self) { period in
                         Button {
                             selectedPeriod = period
                             dismiss()
                         } label: {
                             HStack {
-                                Text(period)
+                                Text(period.displayName)
                                 Spacer()
                                 if selectedPeriod == period {
                                     Image(systemName: "checkmark")
@@ -208,7 +248,7 @@ struct HistoryView: View {
 
     // MARK: - PDF Button
     private var pdfButton: some View {
-        Button(action: { generatePDF() }) {
+        Button(action: { storeKit.isPremium ? generatePDF() : (showPremium = true) }) {
             HStack(spacing: 8) {
                 if isGeneratingPDF {
                     ProgressView()
@@ -233,6 +273,12 @@ struct HistoryView: View {
                 ShareSheet(items: [data])
             }
         }
+        .overlay(alignment: .trailing) {
+            if !storeKit.isPremium {
+                PremiumBadge(text: "Premium")
+                    .padding(.trailing, 16)
+            }
+        }
     }
 
     private func generatePDF() {
@@ -246,7 +292,7 @@ struct HistoryView: View {
             if let data = pdfService.generateReport(
                 records: records,
                 correlations: analysisService.correlations,
-                userName: "患者様"
+                userName: userName.isEmpty ? "患者様" : userName
             ) {
                 pdfData = data
                 showShareSheet = true
@@ -277,7 +323,7 @@ struct HistoryView: View {
                     Button {
                         showPeriodPicker = true
                     } label: {
-                        filterChipLabel(title: "\(L10n.historyFilterPeriod): \(selectedPeriod)", isActive: false)
+                        filterChipLabel(title: "\(L10n.historyFilterPeriod): \(selectedPeriod.displayName)", isActive: selectedPeriod != .thisWeek)
                     }
                     .buttonStyle(.plain)
 
@@ -312,30 +358,8 @@ struct HistoryView: View {
         )
     }
 
-    private func filterChip(title: String, isActive: Bool, onRemove: (() -> Void)? = nil) -> some View {
-        Button(action: { onRemove?() }) {
-            HStack(spacing: 6) {
-                Text(title)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-
-                if isActive {
-                    Image(systemName: "xmark")
-                        .font(.caption)
-                }
-            }
-            .foregroundStyle(isActive ? Color.appPrimary : (colorScheme == .dark ? .white : .black))
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .background(isActive ? Color.appPrimary.opacity(0.1) : (colorScheme == .dark ? Color.surfaceDark : Color.white))
-            .clipShape(Capsule())
-            .overlay(
-                Capsule()
-                    .stroke(isActive ? Color.appPrimary : (colorScheme == .dark ? Color(hex: "2e5c46") : Color.gray.opacity(0.2)), lineWidth: 1)
-            )
-        }
-        .buttonStyle(.plain)
-    }
+    @State private var recordToDelete: PainRecord?
+    @State private var showDeleteConfirm = false
 
     // MARK: - Records List
     private var recordsList: some View {
@@ -346,6 +370,32 @@ struct HistoryView: View {
                 RecordCard(record: record)
             }
             .buttonStyle(.plain)
+            .contextMenu {
+                Button(role: .destructive) {
+                    recordToDelete = record
+                    showDeleteConfirm = true
+                } label: {
+                    Label(L10n.commonDelete, systemImage: "trash")
+                }
+            }
+        }
+        .alert(L10n.recordDeleteConfirmTitle, isPresented: $showDeleteConfirm) {
+            Button(L10n.commonCancel, role: .cancel) {}
+            Button(L10n.commonDelete, role: .destructive) {
+                if let record = recordToDelete {
+                    modelContext.delete(record)
+                    do {
+                        try modelContext.save()
+                    } catch {
+                        #if DEBUG
+                        print("Failed to delete record: \(error)")
+                        #endif
+                        Crashlytics.crashlytics().record(error: error)
+                    }
+                }
+            }
+        } message: {
+            Text(L10n.recordDeleteConfirmMessage)
         }
     }
 
@@ -375,21 +425,11 @@ struct RecordCard: View {
     let record: PainRecord
 
     private var borderColor: Color {
-        switch record.painLevel {
-        case 0...2: return .green
-        case 3...5: return .yellow
-        case 6...8: return .orange
-        default: return .red
-        }
+        record.painLevelColor
     }
 
     private var severityText: String {
-        switch record.painLevel {
-        case 0...2: return L10n.painSeverityMild
-        case 3...5: return L10n.painSeverityModerate
-        case 6...8: return L10n.painSeveritySevere
-        default: return L10n.painSeverityExtreme
-        }
+        record.painLevelText
     }
 
     var body: some View {
@@ -475,17 +515,25 @@ struct RecordCard: View {
         .accessibilityHint(String(localized: "accessibility_tap_to_view_details"))
     }
 
-    private func formatDate(_ date: Date) -> String {
+    private static let cardDateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "ja_JP")
         formatter.dateFormat = "M月d日 (E)"
-        return formatter.string(from: date)
+        return formatter
+    }()
+
+    private static let cardTimeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        return formatter
+    }()
+
+    private func formatDate(_ date: Date) -> String {
+        Self.cardDateFormatter.string(from: date)
     }
 
     private func formatTime(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm"
-        return formatter.string(from: date)
+        Self.cardTimeFormatter.string(from: date)
     }
 }
 

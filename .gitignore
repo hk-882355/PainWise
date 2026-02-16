@@ -54,6 +54,13 @@ fastlane/test_output
 # Personal notes
 FORhk.md
 
+# Firebase config (download from Firebase Console)
+PainWise/Resources/GoogleService-Info.plist
+
+# Secrets
+*.xcconfig
+!*.xcconfig.example
+
 # Large media files
 demo.mp4
 screenshot*.png

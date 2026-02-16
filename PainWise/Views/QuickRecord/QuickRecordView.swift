@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import FirebaseCrashlytics
 
 struct QuickRecordView: View {
     @Environment(\.colorScheme) var colorScheme
@@ -12,19 +13,21 @@ struct QuickRecordView: View {
     @State private var showFront: Bool = true
     @State private var note: String = ""
     @State private var isSaving = false
+    @State private var isLoadingContext = false
+    @State private var showSaveError = false
     @State private var weatherSnapshot: WeatherSnapshot?
     @State private var healthSnapshot: HealthSnapshot?
+    @AppStorage("sleepDataEnabled") private var sleepDataEnabled = true
+    @AppStorage("stepCountEnabled") private var stepCountEnabled = true
+    @AppStorage("heartRateEnabled") private var heartRateEnabled = false
+    @AppStorage("locationEnabled") private var locationEnabled = true
 
     private let weatherService = WeatherService.shared
     private let healthKitService = HealthKitService.shared
+    @ObservedObject private var storeKit = StoreKitManager.shared
 
     private var painSeverityText: String {
-        switch Int(painLevel) {
-        case 0...2: return L10n.painSeverityMild
-        case 3...5: return L10n.painSeverityModerate
-        case 6...8: return L10n.painSeveritySevere
-        default: return L10n.painSeverityExtreme
-        }
+        PainSeverity.fromLevel(Int(painLevel)).localizedName
     }
 
     var body: some View {
@@ -70,22 +73,42 @@ struct QuickRecordView: View {
         .task {
             await fetchContextData()
         }
+        .alert(String(localized: "quick_record_save_error_title"), isPresented: $showSaveError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(String(localized: "quick_record_save_error_message"))
+        }
     }
 
     // MARK: - Fetch Context Data
     private func fetchContextData() async {
-        // Fetch weather data
+        isLoadingContext = true
+        defer { isLoadingContext = false }
+
+        // Fetch weather and health data concurrently
+        async let weatherTask: Void = fetchWeatherData()
+        async let healthTask: Void = fetchHealthData()
+        _ = await (weatherTask, healthTask)
+    }
+
+    private func fetchWeatherData() async {
+        guard locationEnabled else { return }
         await weatherService.fetchCurrentWeather()
         weatherSnapshot = weatherService.currentWeather
+    }
 
-        // Fetch health data (if authorized)
-        if healthKitService.isHealthKitAvailable {
-            do {
+    private func fetchHealthData() async {
+        let healthEnabled = sleepDataEnabled || stepCountEnabled || heartRateEnabled
+        guard storeKit.isPremium, healthEnabled, healthKitService.isHealthKitAvailable else { return }
+        do {
+            if !healthKitService.isAuthorized {
                 try await healthKitService.requestAuthorization()
-                healthSnapshot = await healthKitService.fetchTodayHealthData()
-            } catch {
-                print("HealthKit authorization failed: \(error)")
             }
+            healthSnapshot = await healthKitService.fetchTodayHealthData()
+        } catch {
+            #if DEBUG
+            print("HealthKit authorization failed: \(error)")
+            #endif
         }
     }
 
@@ -268,7 +291,7 @@ struct QuickRecordView: View {
 
     // MARK: - Validation
     private var canSave: Bool {
-        !selectedBodyParts.isEmpty
+        !selectedBodyParts.isEmpty && !isLoadingContext
     }
 
     private var validationMessage: String? {
@@ -341,8 +364,12 @@ struct QuickRecordView: View {
             try modelContext.save()
             dismiss()
         } catch {
+            #if DEBUG
             print("Failed to save record: \(error)")
+            #endif
+            Crashlytics.crashlytics().record(error: error)
             isSaving = false
+            showSaveError = true
         }
     }
 }

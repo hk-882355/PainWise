@@ -2,14 +2,14 @@ import Foundation
 import PDFKit
 import SwiftUI
 
-@MainActor
-final class PDFReportService {
+final class PDFReportService: @unchecked Sendable {
     static let shared = PDFReportService()
 
     private init() {}
 
     // MARK: - Generate PDF Report
 
+    @MainActor
     func generateReport(
         records: [PainRecord],
         correlations: [CorrelationResult],
@@ -86,15 +86,11 @@ final class PDFReportService {
         yPosition += 40
 
         // Date range
-        let dateFormatter = DateFormatter()
-        dateFormatter.locale = Locale(identifier: "ja_JP")
-        dateFormatter.dateFormat = "yyyy年M月d日"
-
         let dateRange: String
         if let firstDate = records.last?.timestamp, let lastDate = records.first?.timestamp {
-            dateRange = "\(dateFormatter.string(from: firstDate)) 〜 \(dateFormatter.string(from: lastDate))"
+            dateRange = "\(Self.jaDateFormatter.string(from: firstDate)) 〜 \(Self.jaDateFormatter.string(from: lastDate))"
         } else {
-            dateRange = dateFormatter.string(from: Date())
+            dateRange = Self.jaDateFormatter.string(from: Date())
         }
 
         let subtitleAttributes: [NSAttributedString.Key: Any] = [
@@ -168,11 +164,7 @@ final class PDFReportService {
         userText.draw(at: CGPoint(x: rect.maxX - userSize.width, y: rect.minY + 10), withAttributes: userAttributes)
 
         // Generated date
-        let dateFormatter = DateFormatter()
-        dateFormatter.locale = Locale.current
-        dateFormatter.dateStyle = .long
-        dateFormatter.timeStyle = .short
-        let generatedText = L10n.pdfGeneratedDate(dateFormatter.string(from: Date()))
+        let generatedText = L10n.pdfGeneratedDate(Self.longDateTimeFormatter.string(from: Date()))
         let generatedSize = generatedText.size(withAttributes: subtitleAttributes)
         generatedText.draw(at: CGPoint(x: rect.maxX - generatedSize.width, y: rect.minY + 30), withAttributes: subtitleAttributes)
     }
@@ -345,12 +337,8 @@ final class PDFReportService {
             .foregroundColor: UIColor.darkGray
         ]
 
-        let dateFormatter = DateFormatter()
-        dateFormatter.locale = Locale(identifier: "ja_JP")
-        dateFormatter.dateFormat = "M/d HH:mm"
-
         for record in records {
-            let dateText = dateFormatter.string(from: record.timestamp)
+            let dateText = Self.shortDateTimeFormatter.string(from: record.timestamp)
             dateText.draw(at: CGPoint(x: point.x, y: yPos), withAttributes: cellAttributes)
 
             let levelText = "\(record.painLevel)/10"
@@ -412,10 +400,38 @@ final class PDFReportService {
 
     // MARK: - Save to Documents
 
+    // MARK: - Cached DateFormatters
+
+    private static let jaDateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "ja_JP")
+        f.dateFormat = "yyyy年M月d日"
+        return f
+    }()
+
+    private static let longDateTimeFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale.current
+        f.dateStyle = .long
+        f.timeStyle = .short
+        return f
+    }()
+
+    private static let shortDateTimeFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "ja_JP")
+        f.dateFormat = "M/d HH:mm"
+        return f
+    }()
+
+    private static let fileNameDateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyyMMdd_HHmmss"
+        return f
+    }()
+
     func saveReport(_ data: Data, fileName: String = "PainWise_Report") -> URL? {
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyyMMdd_HHmmss"
-        let timestamp = dateFormatter.string(from: Date())
+        let timestamp = Self.fileNameDateFormatter.string(from: Date())
         let fullFileName = "\(fileName)_\(timestamp).pdf"
 
         guard let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
@@ -428,7 +444,9 @@ final class PDFReportService {
             try data.write(to: fileURL)
             return fileURL
         } catch {
+            #if DEBUG
             print("Failed to save PDF: \(error)")
+            #endif
             return nil
         }
     }

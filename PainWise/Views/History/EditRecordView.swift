@@ -23,12 +23,7 @@ struct EditRecordView: View {
     }
 
     private var painSeverityText: String {
-        switch Int(painLevel) {
-        case 0...2: return L10n.painSeverityMild
-        case 3...5: return L10n.painSeverityModerate
-        case 6...8: return L10n.painSeveritySevere
-        default: return L10n.painSeverityExtreme
-        }
+        PainSeverity.fromLevel(Int(painLevel)).localizedName
     }
 
     var body: some View {
@@ -242,7 +237,9 @@ struct EditRecordView: View {
             try modelContext.save()
             dismiss()
         } catch {
+            #if DEBUG
             print("Failed to save record: \(error)")
+            #endif
             isSaving = false
         }
     }

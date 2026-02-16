@@ -2,7 +2,7 @@ import Foundation
 import StoreKit
 
 // MARK: - Product IDs
-enum ProductID: String, CaseIterable {
+enum ProductID: String, CaseIterable, Sendable {
     case monthlyPremium = "com.hk.painwise.premium.monthly"
     case yearlyPremium = "com.hk.painwise.premium.yearly"
 
@@ -25,6 +25,7 @@ final class StoreKitManager: ObservableObject {
     @Published private(set) var errorMessage: String?
 
     private var updateListenerTask: Task<Void, Error>?
+    private var initTask: Task<Void, Never>?
 
     var isPremium: Bool {
         !purchasedProductIDs.isEmpty
@@ -41,7 +42,7 @@ final class StoreKitManager: ObservableObject {
     private init() {
         updateListenerTask = listenForTransactions()
 
-        Task {
+        initTask = Task {
             await loadProducts()
             await updatePurchasedProducts()
         }
@@ -49,6 +50,7 @@ final class StoreKitManager: ObservableObject {
 
     deinit {
         updateListenerTask?.cancel()
+        initTask?.cancel()
     }
 
     // MARK: - Load Products
@@ -82,7 +84,7 @@ final class StoreKitManager: ObservableObject {
 
             switch result {
             case .success(let verification):
-                let transaction = try checkVerified(verification)
+                let transaction = try Self.checkVerified(verification)
                 await updatePurchasedProducts()
                 await transaction.finish()
                 return transaction
@@ -124,7 +126,7 @@ final class StoreKitManager: ObservableObject {
 
         for await result in Transaction.currentEntitlements {
             do {
-                let transaction = try checkVerified(result)
+                let transaction = try Self.checkVerified(result)
 
                 if transaction.revocationDate == nil {
                     purchased.insert(transaction.productID)
@@ -141,11 +143,11 @@ final class StoreKitManager: ObservableObject {
 
     // MARK: - Listen for Transactions
     private func listenForTransactions() -> Task<Void, Error> {
-        Task.detached {
+        Task {
             for await result in Transaction.updates {
                 do {
-                    let transaction = try await self.checkVerified(result)
-                    await self.updatePurchasedProducts()
+                    let transaction = try Self.checkVerified(result)
+                    await updatePurchasedProducts()
                     await transaction.finish()
                 } catch {
                     #if DEBUG
@@ -156,8 +158,8 @@ final class StoreKitManager: ObservableObject {
         }
     }
 
-    // MARK: - Verify Transaction
-    private func checkVerified<T>(_ result: VerificationResult<T>) throws -> T {
+    // MARK: - Verify Transaction (pure function, no state access)
+    nonisolated private static func checkVerified<T>(_ result: VerificationResult<T>) throws -> T {
         switch result {
         case .unverified:
             throw StoreKitError.failedVerification
@@ -168,7 +170,7 @@ final class StoreKitManager: ObservableObject {
 }
 
 // MARK: - Errors
-enum StoreKitError: LocalizedError {
+enum StoreKitError: LocalizedError, Sendable {
     case failedVerification
 
     var errorDescription: String? {

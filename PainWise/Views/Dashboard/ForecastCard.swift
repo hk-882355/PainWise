@@ -6,8 +6,14 @@ struct ForecastCard: View {
     let alertLevel: AlertLevel
     let pressure: Int
     let message: String
-    let accuracy: Int
+    let accuracy: Int // data richness score (0-100)
+    var weatherCondition: WeatherCondition?
     var onViewDetail: (() -> Void)?
+
+    private var weatherIcon: String {
+        guard let condition = weatherCondition else { return "cloud.fill" }
+        return condition.icon
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -30,8 +36,8 @@ struct ForecastCard: View {
 
                 Spacer()
 
-                // Accuracy Badge
-                Text("\(L10n.forecastCardAccuracy) \(accuracy)%")
+                // Data Richness Badge
+                Text("\(String(localized: "forecast_card_data_richness")) \(accuracy)%")
                     .font(.caption)
                     .fontWeight(.medium)
                     .padding(.horizontal, 12)
@@ -63,7 +69,7 @@ struct ForecastCard: View {
 
                 // Weather Widget
                 VStack(spacing: 4) {
-                    Image(systemName: "cloud.rain.fill")
+                    Image(systemName: weatherIcon)
                         .font(.system(size: 32))
                         .foregroundStyle(Color.textSecondary)
 
@@ -138,7 +144,8 @@ struct ForecastCard: View {
         alertLevel: .medium,
         pressure: 1008,
         message: "低気圧が接近中です。\n午後から気圧の変化により、頭痛や関節痛が出やすくなる可能性があります。",
-        accuracy: 87
+        accuracy: 87,
+        weatherCondition: .rainy
     )
     .padding()
     .background(Color.backgroundDark)

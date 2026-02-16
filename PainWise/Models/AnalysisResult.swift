@@ -1,8 +1,6 @@
 import Foundation
-import SwiftData
 
-@Model
-final class AnalysisResult {
+struct AnalysisResultData: Identifiable, Sendable {
     var id: UUID
     var createdAt: Date
     var periodStart: Date
@@ -30,7 +28,7 @@ final class AnalysisResult {
     }
 }
 
-struct Correlation: Codable, Identifiable {
+struct Correlation: Codable, Identifiable, Sendable {
     var id: UUID = UUID()
     var factor: CorrelationFactor
     var coefficient: Double // -1.0 to 1.0
@@ -52,7 +50,7 @@ struct Correlation: Codable, Identifiable {
     }
 }
 
-enum CorrelationFactor: String, Codable {
+enum CorrelationFactor: String, Codable, Sendable {
     case pressure = "気圧"
     case temperature = "気温"
     case humidity = "湿度"
@@ -83,7 +81,7 @@ enum CorrelationFactor: String, Codable {
     }
 }
 
-enum CorrelationStrength: String {
+enum CorrelationStrength: String, Sendable {
     case strong = "強い"
     case moderate = "中程度"
     case weak = "弱い"
@@ -99,7 +97,7 @@ enum CorrelationStrength: String {
     }
 }
 
-struct Recommendation: Codable, Identifiable {
+struct Recommendation: Codable, Identifiable, Sendable {
     var id: UUID = UUID()
     var title: String
     var description: String
@@ -108,7 +106,7 @@ struct Recommendation: Codable, Identifiable {
     var isCompleted: Bool = false
 }
 
-enum RecommendationPriority: String, Codable {
+enum RecommendationPriority: String, Codable, Sendable {
     case high = "高"
     case medium = "中"
     case low = "低"
