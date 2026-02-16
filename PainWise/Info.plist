@@ -17,9 +17,9 @@
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0</string>
+    <string>1.1</string>
     <key>CFBundleVersion</key>
-    <string>1</string>
+    <string>2</string>
     <key>LSRequiresIPhoneOS</key>
     <true/>
     <key>UIApplicationSceneManifest</key>
@@ -53,6 +53,8 @@
     <string>Automatic</string>
     <key>NSHealthShareUsageDescription</key>
     <string>痛みと睡眠・歩数データの相関を分析するためにヘルスケアデータへのアクセスが必要です。</string>
+    <key>NSHealthUpdateUsageDescription</key>
+    <string>ヘルスケアデータの連携に必要です。アプリはヘルスケアデータの書き込みは行いません。</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>現在地の気圧データを取得し、痛みとの相関を分析するために位置情報を使用します。</string>
 	<key>OpenWeatherMapAPIKey</key>
